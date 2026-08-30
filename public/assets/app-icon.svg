@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Zelacity Plataforma</title>
+  <desc id="desc">Ícone municipal da Zelacity Plataforma</desc>
+  <defs>
+    <linearGradient id="background" x1="74" x2="438" y1="44" y2="470" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0a3f5e"/>
+      <stop-offset="1" stop-color="#0f7169"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#background)"/>
+  <path d="M106 139h300v53H201l142 95v86H106v-53h205l-142-95v-86Z" fill="#fff"/>
+  <path d="M106 390h300" stroke="#a7e0c1" stroke-linecap="round" stroke-width="26"/>
+  <circle cx="405" cy="112" r="31" fill="#a7e0c1"/>
+</svg>

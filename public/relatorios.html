@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0c4a6e" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>Relatórios administrativos | Zelacity Plataforma</title>
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" href="/assets/app-icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/assets/app-icon.svg" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="dashboard-page">
+    <header class="site-header">
+      <nav class="nav container" aria-label="Navegação principal">
+        <a class="brand" href="/"><span class="brand-logo-frame"><img class="brand-logo" src="/assets/zelacity-logo.jpg" alt="" /></span><span class="brand-name">Zelacity <span>Plataforma</span></span></a>
+        <div class="nav-actions"><a class="nav-link" href="/painel.html">Painel</a><a class="nav-link" href="/ordens-servico.html">Ordens de serviço</a><span class="user-chip" id="reports-user"></span><button class="nav-logout" id="logout-button" type="button">Sair</button></div>
+      </nav>
+    </header>
+    <main class="dashboard container">
+      <div class="dashboard-heading"><div><p class="eyebrow">Gestão administrativa</p><h1>Relatórios</h1></div><p>Analise a demanda municipal, os atendimentos concluídos e a execução das equipes em um só lugar.</p></div>
+      <section class="dashboard-section reports-section">
+        <div class="reports-section-heading"><div><h2>Consolidado de solicitações</h2><p>O período filtra solicitações pela data de abertura e serviços por equipe pela data de execução.</p></div><p class="report-privacy">Os relatórios não exibem telefone nem outros dados pessoais desnecessários.</p></div>
+        <form class="report-filters" id="report-filters">
+          <label class="field">De<input name="startDate" type="date" /></label>
+          <label class="field">Até<input name="endDate" type="date" /></label>
+          <label class="field">Categoria<select name="category"><option value="">Todas</option><option value="ESTRADAS">Estradas</option><option value="LAMPADAS">Lâmpadas</option><option value="LUMINARIAS">Luminárias</option></select></label>
+          <label class="field">Status<select name="status"><option value="">Todos</option></select></label>
+          <label class="field">Bairro<input name="neighborhood" type="search" maxlength="80" placeholder="Ex.: Centro" /></label>
+          <div class="report-filter-actions"><button class="button button-primary button-small" type="submit">Gerar relatório</button><button class="button button-secondary button-small" type="reset">Limpar</button></div>
+        </form>
+        <div class="report-toolbar" aria-label="Ações do relatório"><button class="button button-secondary button-small" id="download-xlsx" type="button" disabled>Exportar Excel</button><button class="button button-secondary button-small" id="download-csv" type="button" disabled>Exportar CSV</button><button class="button button-primary button-small" id="print-report" type="button" disabled>Imprimir relatório</button></div>
+        <p class="report-feedback" id="report-feedback" aria-live="polite"></p>
+        <div id="report-print-area" class="report-print-area"><p class="dashboard-notice">Defina os filtros desejados e gere o relatório.</p></div>
+      </section>
+    </main>
+    <script src="/relatorios.js"></script>
+    <script src="/pwa.js"></script>
+  </body>
+</html>

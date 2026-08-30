@@ -1,0 +1,23 @@
+{
+  "id": "/",
+  "name": "Zelacity Plataforma",
+  "short_name": "Zelacity",
+  "description": "Sistema municipal de solicitações e ordens de serviço.",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "background_color": "#f2f7f6",
+  "theme_color": "#0a3f5e",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/assets/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

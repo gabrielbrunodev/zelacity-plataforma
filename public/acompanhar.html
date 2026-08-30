@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0c4a6e" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="description" content="Consulte o andamento da sua solicitação na Zelacity Plataforma." />
+    <title>Acompanhar Solicitação | Zelacity Plataforma</title>
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" href="/assets/app-icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/assets/app-icon.svg" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <nav class="nav container" aria-label="Navegação principal">
+        <a class="brand" href="/" aria-label="Zelacity Plataforma - início">
+          <span class="brand-logo-frame"><img class="brand-logo" src="/assets/zelacity-logo.jpg" alt="" /></span>
+          <span class="brand-name">Zelacity <span>Plataforma</span></span>
+        </a>
+        <a class="nav-link" href="/">Nova solicitação</a>
+      </nav>
+    </header>
+
+    <main class="tracking-page">
+      <section class="tracking-hero">
+        <div class="container narrow-container">
+          <a class="back-link" href="/">← Voltar para o início</a>
+          <p class="eyebrow">Consulta pública</p>
+          <h1>Acompanhe sua<br /><em>solicitação.</em></h1>
+          <p class="tracking-description">Informe o protocolo e os últimos 4 dígitos do telefone usado no registro. Nenhuma informação poderá ser alterada nesta área.</p>
+          <form class="lookup-form" id="lookup-form" novalidate>
+            <label for="protocol-input">Número do protocolo</label>
+            <div class="lookup-controls"><input id="protocol-input" name="protocol" type="text" autocomplete="off" placeholder="SOL-2026-00001" required /><button class="button button-primary" type="submit">Consultar <span aria-hidden="true">→</span></button></div>
+            <label for="phone-last-four-input">Últimos 4 dígitos do telefone</label>
+            <input id="phone-last-four-input" name="phoneLastFour" type="text" inputmode="numeric" autocomplete="off" maxlength="4" pattern="[0-9]{4}" placeholder="0000" required />
+            <p class="lookup-error" id="lookup-error" role="alert" hidden></p>
+          </form>
+        </div>
+      </section>
+
+      <section class="request-result section" id="request-result" aria-live="polite" hidden>
+        <div class="container narrow-container">
+          <div class="result-heading"><div><p class="eyebrow">Situação da solicitação</p><h2 id="result-protocol">SOL-2026-00001</h2></div><span class="status-badge" id="result-status">Recebida</span></div>
+          <div class="result-grid">
+            <article class="details-card"><h3>Detalhes registrados</h3><dl class="request-details"><div><dt>Tipo de serviço</dt><dd id="result-category"></dd></div><div><dt>Local</dt><dd id="result-location"></dd></div><div><dt>Data da solicitação</dt><dd id="result-created-at"></dd></div><div><dt>Prioridade</dt><dd id="result-priority"></dd></div><div><dt>Última atualização</dt><dd id="result-updated-at"></dd></div></dl><p class="read-only-note"><span aria-hidden="true">⌁</span> Esta é uma consulta de acompanhamento. Os dados da solicitação não podem ser alterados.</p></article>
+            <article class="progress-card"><p class="eyebrow">Andamento</p><h3>Fluxo de atendimento</h3><ol class="progress-timeline" id="progress-timeline"><li data-status="RECEBIDA"><span>1</span><strong>Solicitação recebida</strong></li><li data-status="EM_ANALISE"><span>2</span><strong>Em análise</strong></li><li data-status="PROGRAMADA"><span>3</span><strong>Programada</strong></li><li data-status="EM_EXECUCAO"><span>4</span><strong>Em execução</strong></li><li data-status="CONCLUIDA"><span>5</span><strong>Concluída</strong></li></ol></article>
+          </div>
+          <article class="request-history-card"><p class="eyebrow">Histórico</p><h3>Andamento registrado</h3><ol class="audit-list" id="request-history"></ol></article>
+        </div>
+      </section>
+    </main>
+    <footer class="site-footer"><div class="container"><span>© 2026 Zelacity Plataforma</span><span>Sistema Municipal de Solicitações e Ordens de Serviço</span></div></footer>
+    <script src="/acompanhar.js"></script>
+    <script src="/pwa.js"></script>
+  </body>
+</html>

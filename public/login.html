@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0c4a6e" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="description" content="Acesso seguro à Zelacity Plataforma." />
+    <title>Entrar | Zelacity Plataforma</title>
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" href="/assets/app-icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/assets/app-icon.svg" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="auth-page">
+    <main class="auth-layout">
+      <section class="auth-brand-panel"><a class="brand brand-light" href="/"><span class="brand-logo-frame"><img class="brand-logo" src="/assets/zelacity-logo.jpg" alt="" /></span><span class="brand-name">Zelacity <span>Plataforma</span></span></a><div><p class="eyebrow">Acesso institucional</p><h1>Gestão que cuida<br />da <em>cidade.</em></h1><p>Entre para registrar solicitações ou acessar a área de trabalho da Prefeitura.</p></div><a class="back-link" href="/">← Voltar para o início</a></section>
+      <section class="auth-form-panel"><div class="auth-form-wrap"><p class="eyebrow">Bem-vindo</p><h2>Entrar no sistema</h2><p class="auth-copy">Use seu e-mail institucional e sua senha para continuar.</p><form id="login-form" class="login-form" novalidate><label class="field">E-mail<input type="email" name="email" autocomplete="email" required /></label><label class="field">Senha<input type="password" name="password" autocomplete="current-password" required /></label><p class="form-error" id="login-error" role="alert" hidden></p><button class="button button-primary" type="submit">Entrar <span aria-hidden="true">→</span></button></form><p class="auth-help">O primeiro administrador deve ser criado pelo comando de inicialização descrito no README.</p></div></section>
+    </main>
+    <script src="/login.js"></script>
+    <script src="/pwa.js"></script>
+  </body>
+</html>
