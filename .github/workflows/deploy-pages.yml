@@ -1,0 +1,59 @@
+name: Publicar demonstração no GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v6
+
+      - name: Preparar demonstração visual
+        run: |
+          mkdir -p _site
+          cp -R public/. _site/
+          find _site -type f -name '*.html' -exec sed -i -E 's#(href|src)=\"/#\\1=\"./#g' {} +
+          find _site -type f -name '*.html' -exec sed -i -E '/rel=\"manifest\"/d; /src=\"\\.\\/pwa\\.js\"/d' {} +
+          cat > _site/pages-demo.js <<'EOF'
+          (() => {
+            const note = document.createElement('aside');
+            note.textContent = 'Demonstração visual do Zelacity. Cadastro, login, consulta e ordens de serviço exigem o backend hospedado.';
+            Object.assign(note.style, { position: 'sticky', top: '0', zIndex: '9999', padding: '11px 18px', background: '#0a3f5e', color: '#fff', font: '600 14px system-ui', textAlign: 'center' });
+            document.body.prepend(note);
+            document.addEventListener('submit', (event) => { event.preventDefault(); event.stopImmediatePropagation(); window.alert('Esta é uma demonstração visual. Para usar o sistema completo, acesse a versão hospedada com o backend.'); }, true);
+            document.querySelectorAll('a[href]').forEach((link) => link.addEventListener('click', (event) => { if (link.getAttribute('href') !== '#') { event.preventDefault(); window.alert('Esta é uma demonstração visual.'); } }));
+          })();
+          EOF
+          find _site -type f -name '*.html' -exec sed -i 's#</body>#<script src=\"./pages-demo.js\"></script></body>#' {} +
+
+      - name: Configurar Pages
+        uses: actions/configure-pages@v5
+
+      - name: Enviar artefato
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Publicar no GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
