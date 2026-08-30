@@ -25,8 +25,8 @@ jobs:
         run: |
           mkdir -p _site
           cp -R public/. _site/
-          find _site -type f -name '*.html' -exec sed -i -E 's#(href|src)=\"/#\\1=\"./#g' {} +
-          find _site -type f -name '*.html' -exec sed -i -E '/rel=\"manifest\"/d; /src=\"\\.\\/pwa\\.js\"/d' {} +
+          find _site -type f -name '*.html' -exec sed -i -E 's#(href|src)="/#\1="./#g' {} +
+          find _site -type f -name '*.html' -exec sed -i -E '/rel="manifest"/d; /src="\.\/pwa\.js"/d' {} +
           cat > _site/pages-demo.js <<'EOF'
           (() => {
             const note = document.createElement('aside');
@@ -37,7 +37,7 @@ jobs:
             document.querySelectorAll('a[href]').forEach((link) => link.addEventListener('click', (event) => { if (link.getAttribute('href') !== '#') { event.preventDefault(); window.alert('Esta é uma demonstração visual.'); } }));
           })();
           EOF
-          find _site -type f -name '*.html' -exec sed -i 's#</body>#<script src=\"./pages-demo.js\"></script></body>#' {} +
+          find _site -type f -name '*.html' -exec sed -i 's#</body>#<script src="./pages-demo.js"></script></body>#' {} +
 
       - name: Configurar Pages
         uses: actions/configure-pages@v5
