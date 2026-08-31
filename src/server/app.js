@@ -139,7 +139,8 @@ function requireRoles(request, response, authService, roles) {
 
 function hasAllowedOrigin(request) {
   const origin = request.headers.origin;
-  return !origin || origin === `http://${request.headers.host}`;
+  const host = request.headers.host;
+  return !origin || origin === `http://${host}` || origin === `https://${host}`;
 }
 
 function serveStaticFile(request, response) {

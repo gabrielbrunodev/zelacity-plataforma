@@ -7,10 +7,10 @@
   "scripts": {
     "start": "node src/server/index.js",
     "dev": "node --watch src/server/index.js",
-    "check": "node --check src/server/index.js && node --check src/server/app.js && node --check src/server/requestService.js && node --check src/server/requestRepository.js && node --check src/server/workOrderService.js && node --check src/server/workOrderRepository.js && node --check src/server/notificationService.js && node --check src/auth/authService.js && node --check src/database/database.js && node --check src/server/reportRepository.js && node --check src/server/reportService.js && node --check src/server/reportExporter.js && node --check public/app.js && node --check public/acompanhar.js && node --check public/painel.js && node --check public/manutencao.js && node --check public/relatorios.js && node --check public/pwa.js && node --check public/service-worker.js",
+    "check": "node --check src/server/index.js && node --check src/server/runtime.js && node --check src/server/app.js && node --check api/[...path].js && node --check src/server/requestService.js && node --check src/server/requestRepository.js && node --check src/server/workOrderService.js && node --check src/server/workOrderRepository.js && node --check src/server/notificationService.js && node --check src/auth/authService.js && node --check src/database/database.js && node --check src/server/reportRepository.js && node --check src/server/reportService.js && node --check src/server/reportExporter.js && node --check public/app.js && node --check public/acompanhar.js && node --check public/painel.js && node --check public/manutencao.js && node --check public/relatorios.js && node --check public/pwa.js && node --check public/service-worker.js",
     "bootstrap-admin": "node src/scripts/bootstrapAdmin.js"
   },
   "engines": {
-    "node": ">=20"
+    "node": "22.x"
   }
 }
