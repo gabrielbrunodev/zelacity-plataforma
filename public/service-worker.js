@@ -1,4 +1,4 @@
-const CACHE_NAME = 'zelacity-static-v2';
+const CACHE_NAME = 'zelacity-static-v3';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -19,7 +19,7 @@ const STATIC_ASSETS = [
   '/pwa.js',
   '/manifest.json',
   '/assets/app-icon.svg',
-  '/assets/zelacity-logo.jpg'
+  '/assets/zelacity-logo.png'
 ];
 
 self.addEventListener('install', (event) => {
