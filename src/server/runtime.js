@@ -12,6 +12,7 @@ const { PhotoStorage } = require('./photoStorage');
 const { ImageRepository } = require('./imageRepository');
 const { AuditRepository } = require('./auditRepository');
 const { NotificationService } = require('./notificationService');
+const { seedDemoData } = require('./demoData');
 
 function createRuntime() {
   const database = createDatabase(config.databasePath);
@@ -26,6 +27,7 @@ function createRuntime() {
   const reportRepository = new ReportRepository(database);
   const reportService = new ReportService(reportRepository);
   const authService = new AuthService(database, config);
+  if (config.demoMode) seedDemoData(database, authService);
 
   return {
     authService,
