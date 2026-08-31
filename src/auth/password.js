@@ -3,8 +3,8 @@ const { randomBytes, scryptSync, timingSafeEqual } = require('node:crypto');
 const KEY_LENGTH = 64;
 
 function validatePassword(password) {
-  if (typeof password !== 'string' || password.length < 12) {
-    return 'A senha deve ter pelo menos 12 caracteres.';
+  if (typeof password !== 'string' || password.length < 8) {
+    return 'A senha deve ter pelo menos 8 caracteres.';
   }
   return null;
 }
