@@ -298,7 +298,7 @@ function renderUserManagement(users, teams, reload) {
   teamForm.addEventListener('submit', async (event) => { event.preventDefault(); try { await api('/api/teams', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.fromEntries(new FormData(teamForm))) }); teamFeedback.textContent = 'Equipe criada com sucesso.'; reload(); } catch (error) { teamFeedback.textContent = error.message; } });
   section.append(teamForm, element('h3', '', 'Cadastrar acesso interno'));
   const form = createEmployeeForm(teams);
-  const password = document.createElement('label'); password.className = 'field'; password.innerHTML = 'Senha inicial *<input name="password" type="password" minlength="12" required />'; form.append(password);
+  const password = document.createElement('label'); password.className = 'field'; password.innerHTML = 'Senha inicial *<input name="password" type="password" minlength="8" required />'; form.append(password);
   const submit = element('button', 'button button-primary button-small', 'Cadastrar usuário'); submit.type = 'submit'; form.append(submit);
   const feedback = element('p', 'inline-feedback'); form.append(feedback);
   form.addEventListener('submit', async (event) => { event.preventDefault(); try { await api('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payloadFromEmployeeForm(form)) }); feedback.textContent = 'Usuário cadastrado com sucesso.'; reload(); } catch (error) { feedback.textContent = error.message; } });
@@ -310,7 +310,7 @@ function renderUserManagement(users, teams, reload) {
     const edit = element('button', 'button button-secondary button-small', 'Editar'); edit.type = 'button'; summary.append(text, edit); card.append(summary);
     const editor = createEmployeeForm(teams, user); editor.hidden = true;
     const active = document.createElement('label'); active.className = 'field'; active.innerHTML = '<span>Status do acesso</span><select name="active"><option value="true">Ativo</option><option value="false">Inativo</option></select>'; active.querySelector('select').value = user.active ? 'true' : 'false'; editor.append(active);
-    const reset = document.createElement('label'); reset.className = 'field'; reset.innerHTML = 'Nova senha <small>opcional</small><input name="password" type="password" minlength="12" />'; editor.append(reset);
+    const reset = document.createElement('label'); reset.className = 'field'; reset.innerHTML = 'Nova senha <small>opcional</small><input name="password" type="password" minlength="8" />'; editor.append(reset);
     const save = element('button', 'button button-primary button-small', 'Salvar alterações'); save.type = 'submit'; editor.append(save);
     const editorFeedback = element('p', 'inline-feedback'); editor.append(editorFeedback); card.append(editor);
     edit.addEventListener('click', () => { editor.hidden = !editor.hidden; edit.textContent = editor.hidden ? 'Editar' : 'Fechar'; });
