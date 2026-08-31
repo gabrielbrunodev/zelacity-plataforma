@@ -9,6 +9,7 @@ const config = {
   databasePath: process.env.DATABASE_PATH ? path.resolve(process.env.DATABASE_PATH) : path.join(writableDirectory, 'data', 'munimanutencao.sqlite'),
   uploadDirectory: process.env.UPLOAD_DIRECTORY ? path.resolve(process.env.UPLOAD_DIRECTORY) : path.join(writableDirectory, 'uploads'),
   googleMapsApiKey: (process.env.GOOGLE_MAPS_API_KEY || '').trim(),
+  demoMode: process.env.DEMO_MODE === 'true' || (isVercel && process.env.DEMO_MODE !== 'false'),
   sessionHours: 12,
 };
 
