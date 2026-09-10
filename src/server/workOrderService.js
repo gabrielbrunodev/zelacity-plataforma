@@ -202,6 +202,41 @@ class WorkOrderService {
     return result;
   }
 
+  autoRouteRequest(protocol, { createdByUserId = null } = {}) {
+    const normalizedProtocol = String(protocol || '').trim().toUpperCase();
+    const request = this.repository.database.prepare('SELECT category FROM requests WHERE protocol = ?').get(normalizedProtocol);
+    if (!request) return { notFound: true };
+    const routing = this.repository.findAutomaticRouting(request.category);
+    if (!routing) return { skipped: true, reason: 'equipe-indisponivel' };
+    const creatorId = createdByUserId || this.repository.getPublicAuditUserId();
+    const result = this.repository.createAutomaticForRequest(normalizedProtocol, routing, creatorId);
+    if (!result.workOrder || result.alreadyExists) return result;
+    const workOrder = result.workOrder;
+    this.auditRepository.record({
+      requestId: workOrder.request_id,
+      workOrderId: workOrder.id,
+      entityType: 'SOLICITACAO',
+      userId: creatorId,
+      eventType: 'STATUS_ALTERADO',
+      action: 'Solicitação encaminhada automaticamente para a equipe responsável',
+      previousStatus: 'RECEBIDA',
+      newStatus: 'ENCAMINHADA',
+      publicUpdate: 'Sua solicitação foi encaminhada para a equipe responsável.',
+    });
+    this.auditRepository.record({
+      requestId: workOrder.request_id,
+      workOrderId: workOrder.id,
+      entityType: 'ORDEM_SERVICO',
+      userId: creatorId,
+      eventType: 'ORDEM_SERVICO_CRIADA',
+      action: 'OS criada automaticamente por categoria',
+      newStatus: workOrder.status,
+      observation: `${workOrder.number} criada para a solicitação ${workOrder.protocol}.`,
+    });
+    this.notifySafely(() => this.internalNotificationService?.notifyAssignment(workOrder, { createdByUserId: creatorId }));
+    return result;
+  }
+
   addPhoto(workOrderId, user, photo) {
     const workOrder = this.repository.findById(Number(workOrderId));
     if (!workOrder) return { notFound: true };

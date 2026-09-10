@@ -25,6 +25,72 @@ class WorkOrderRepository {
     }
   }
 
+  findAutomaticRouting(category) {
+    const members = this.database.prepare(`
+      SELECT users.id, users.team_id, users.service_categories, teams.name AS team_name
+      FROM users
+      JOIN teams ON teams.id = users.team_id
+      WHERE users.role = 'MANUTENCAO' AND users.active = 1
+      ORDER BY users.id
+    `).all();
+    const categoryMember = members.find((member) => {
+      try {
+        const categories = JSON.parse(member.service_categories || '[]');
+        return categories.length > 0 && categories.includes(category);
+      } catch {
+        return false;
+      }
+    });
+    if (categoryMember) return { teamId: Number(categoryMember.team_id) };
+
+    const teamNamesByCategory = {
+      ESTRADAS: ['estradas', 'equipe de vias'],
+      LAMPADAS: ['iluminação', 'equipe de iluminação'],
+      LUMINARIAS: ['iluminação', 'equipe de iluminação'],
+      OUTROS: ['manutenção geral'],
+    };
+    const expectedNames = teamNamesByCategory[category] || [];
+    const legacyMember = members.find((member) => expectedNames.includes(String(member.team_name || '').trim().toLowerCase()));
+    return legacyMember ? { teamId: Number(legacyMember.team_id) } : null;
+  }
+
+  getPublicAuditUserId() {
+    const systemUser = this.database.prepare("SELECT id FROM users WHERE email = 'sistema.publico@zelacity.local' LIMIT 1").get();
+    if (!systemUser) throw new Error('O usuário interno de auditoria não está disponível.');
+    return Number(systemUser.id);
+  }
+
+  createAutomaticForRequest(protocol, { teamId }, createdByUserId) {
+    const request = this.database.prepare('SELECT * FROM requests WHERE protocol = ?').get(protocol);
+    if (!request) return { notFound: true };
+    const existing = this.database.prepare('SELECT id FROM work_orders WHERE request_id = ?').get(request.id);
+    if (existing) return { workOrder: this.findById(Number(existing.id)), alreadyExists: true };
+    if (request.status !== 'RECEBIDA') return { skipped: true, reason: 'status' };
+    if (!this.database.prepare('SELECT 1 FROM teams WHERE id = ?').get(teamId)) return { teamNotFound: true };
+
+    const year = new Date().getFullYear();
+    const prefix = `OS-${year}-`;
+    const now = new Date().toISOString();
+    this.database.exec('BEGIN IMMEDIATE');
+    try {
+      const row = this.database.prepare("SELECT COALESCE(MAX(CAST(SUBSTR(number, 10) AS INTEGER)), 0) AS last_sequence FROM work_orders WHERE number LIKE ?").get(`${prefix}%`);
+      const number = `${prefix}${String(row.last_sequence + 1).padStart(5, '0')}`;
+      const result = this.database.prepare(`
+        INSERT INTO work_orders (
+          number, request_id, protocol, category, location, description, priority,
+          team_id, assigned_user_id, created_by_user_id, scheduled_at, status, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PROGRAMADA', ?, ?)
+      `).run(number, request.id, request.protocol, request.category, request.location, request.description, request.priority, teamId, null, createdByUserId, null, now, now);
+      this.database.prepare("UPDATE requests SET status = 'ENCAMINHADA', updated_at = ? WHERE id = ?").run(now, request.id);
+      this.database.exec('COMMIT');
+      return { workOrder: this.findById(Number(result.lastInsertRowid)), requestStatus: 'ENCAMINHADA' };
+    } catch (error) {
+      this.database.exec('ROLLBACK');
+      if (String(error.message).includes('UNIQUE')) return { error: 'Já existe uma ordem de serviço para esta solicitação.' };
+      throw error;
+    }
+  }
+
   createForRequest(protocol, { teamId, assignedUserId, scheduledAt }, createdByUserId) {
     const request = this.database.prepare('SELECT * FROM requests WHERE protocol = ?').get(protocol);
     if (!request) return { notFound: true };

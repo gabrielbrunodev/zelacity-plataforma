@@ -607,7 +607,13 @@ function createApp({ requestService, workOrderService, reportService, authServic
         const requesterUser = authenticatedUser?.role === 'VEREADOR' ? authenticatedUser : null;
         const result = requestService.register(payload, requesterUser, requestPhoto);
         if (result.error) { sendJson(response, 400, { error: result.error }); return; }
-        sendJson(response, 201, { message: 'Solicitação registrada com sucesso', protocol: result.request.protocol, createdAt: result.request.createdAt, notifications: result.notifications });
+        let routing = null;
+        try {
+          routing = workOrderService.autoRouteRequest(result.request.protocol, { createdByUserId: requesterUser?.id || null });
+        } catch {
+          // O registro público não deve falhar caso a criação da OS automática precise ser reprocessada.
+        }
+        sendJson(response, 201, { message: 'Solicitação registrada com sucesso', protocol: result.request.protocol, createdAt: result.request.createdAt, notifications: result.notifications, routing });
       } catch (error) {
         sendJson(response, 400, { error: error.message || 'Não foi possível registrar a solicitação.' });
       }
