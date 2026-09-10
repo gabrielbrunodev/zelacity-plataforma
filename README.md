@@ -84,7 +84,8 @@ Depois, entre em [http://localhost:3000/login.html](http://localhost:3000/login.
 - A consulta pública retorna exclusivamente protocolo, categoria, bairro resumido, datas, status e mensagem pública; nunca dados de contato, observações internas, imagens ou responsáveis.
 - Imagens aceitam apenas JPG, PNG ou WebP, com no máximo 5 MB, e passam por validação de tipo e assinatura.
 - A auditoria é imutável e classifica criação, alteração de status, atribuição, redistribuição, prioridade, fotos, observações, protocolo 1Doc, início, impossibilidade, conclusão e reabertura. O histórico administrativo mostra todos os detalhes; a consulta pública exibe somente eventos com atualização pública.
-- O SQLite fica em `data/munimanutencao.sqlite`; reiniciar o servidor não apaga os dados.
+- Em execução local, o SQLite fica em `data/munimanutencao.sqlite`; reiniciar o servidor não apaga os dados.
+- Na Vercel, o ambiente de funções não possui disco permanente. Sem um banco externo configurado, o protótipo usa `/tmp`, que pode ser recriado quando a função é reiniciada. Antes de usar dados reais em produção, configure um banco persistente (por exemplo, Vercel Postgres/Neon, Supabase ou Turso) e migre o adaptador de persistência; não use o SQLite temporário da Vercel como banco oficial.
 
 Por padrão, a foto posterior é recomendada, mas não obrigatória. Para exigi-la ao concluir um serviço, configure antes de iniciar o servidor:
 
