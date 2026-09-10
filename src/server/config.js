@@ -23,6 +23,7 @@ const config = {
   demoMode: process.env.DEMO_MODE === 'true' || (isVercel && process.env.DEMO_MODE !== 'false'),
   requireAfterExecutionPhoto: process.env.REQUIRE_AFTER_EXECUTION_PHOTO === 'true',
   secureCookies: isVercel || process.env.COOKIE_SECURE === 'true',
+  sessionSecret: process.env.SESSION_SECRET || 'local-development-session-secret',
   mobileAllowedOrigins: parseAllowedOrigins(process.env.MOBILE_ALLOWED_ORIGINS),
   sessionHours: 12,
 };
