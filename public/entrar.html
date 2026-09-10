@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0c4a6e" />
+    <meta name="description" content="Escolha seu tipo de acesso à Zelacity Plataforma." />
+    <title>Escolher acesso | Zelacity Plataforma</title>
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" href="/assets/app-icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="access-choice-page">
+    <main class="access-choice-main container">
+      <a class="brand" href="/" aria-label="Zelacity Plataforma - início"><span class="brand-logo-frame"><img class="brand-logo" src="/assets/zelacity-logo.png" alt="Logo da Zelacity" /></span><span class="brand-name">Zelacity <span>Plataforma</span></span></a>
+      <section class="access-choice-card" aria-labelledby="access-choice-title">
+        <a class="back-link" href="/">← Voltar para o início</a>
+        <p class="eyebrow">Acesso institucional</p>
+        <h1 id="access-choice-title">Como você deseja <em>entrar?</em></h1>
+        <p>Selecione seu perfil para acessar a área correta do sistema.</p>
+        <div class="access-choice-options">
+          <a class="access-choice-option" href="/login.html?perfil=FUNCIONARIO"><span class="access-choice-icon" aria-hidden="true">↗</span><span><strong>Funcionário</strong><small>Ordens de serviço atribuídas à sua equipe.</small></span><span aria-hidden="true">→</span></a>
+          <a class="access-choice-option" href="/login.html?perfil=ADMINISTRADOR"><span class="access-choice-icon" aria-hidden="true">⌘</span><span><strong>Administrador</strong><small>Gestão de solicitações, equipes e relatórios.</small></span><span aria-hidden="true">→</span></a>
+          <a class="access-choice-option" href="/login.html?perfil=VEREADOR"><span class="access-choice-icon" aria-hidden="true">◉</span><span><strong>Vereador</strong><small>Cadastro e acompanhamento das demandas do gabinete.</small></span><span aria-hidden="true">→</span></a>
+        </div>
+      </section>
+    </main>
+    <script src="/runtime-config.js"></script>
+    <script src="/capacitor-adapter.js"></script>
+    <script src="/pwa.js"></script>
+  </body>
+</html>

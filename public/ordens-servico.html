@@ -14,8 +14,10 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body class="dashboard-page">
-    <header class="site-header"><nav class="nav container" aria-label="Navegação principal"><a class="brand" href="/"><span class="brand-logo-frame"><img class="brand-logo" src="/assets/zelacity-logo.jpg" alt="" /></span><span class="brand-name">Zelacity <span>Plataforma</span></span></a><div class="nav-actions"><a class="nav-link" href="/painel.html">Painel</a><button class="nav-logout" id="logout-button" type="button">Sair</button></div></nav></header>
+    <header class="site-header"><nav class="nav container" aria-label="Navegação principal"><a class="brand" href="/"><span class="brand-logo-frame"><img class="brand-logo" src="/assets/zelacity-logo.png" alt="Logo da Zelacity" /></span><span class="brand-name">Zelacity <span>Plataforma</span></span></a><div class="nav-actions"><a class="nav-link" href="/painel.html">Painel</a><button class="nav-logout" id="logout-button" type="button">Sair</button></div></nav></header>
     <main class="dashboard container"><div class="dashboard-heading"><div><p class="eyebrow">Módulo operacional</p><h1>Ordens de serviço</h1></div><p id="orders-description">Acompanhe e atualize as ordens de serviço sob sua responsabilidade.</p></div><section class="dashboard-section"><div class="orders-toolbar"><h2>Ordens registradas</h2><a class="button button-primary button-small" id="create-order-link" href="/painel.html">Criar ordem de serviço</a></div><div id="work-orders-content"></div></section></main>
+    <script src="/runtime-config.js"></script>
+    <script src="/capacitor-adapter.js"></script>
     <script src="/ordens-servico.js"></script>
     <script src="/pwa.js"></script>
   </body>

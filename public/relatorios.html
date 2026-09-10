@@ -16,7 +16,7 @@
   <body class="dashboard-page">
     <header class="site-header">
       <nav class="nav container" aria-label="Navegação principal">
-        <a class="brand" href="/"><span class="brand-logo-frame"><img class="brand-logo" src="/assets/zelacity-logo.jpg" alt="" /></span><span class="brand-name">Zelacity <span>Plataforma</span></span></a>
+        <a class="brand" href="/"><span class="brand-logo-frame"><img class="brand-logo" src="/assets/zelacity-logo.png" alt="Logo da Zelacity" /></span><span class="brand-name">Zelacity <span>Plataforma</span></span></a>
         <div class="nav-actions"><a class="nav-link" href="/painel.html">Painel</a><a class="nav-link" href="/ordens-servico.html">Ordens de serviço</a><span class="user-chip" id="reports-user"></span><button class="nav-logout" id="logout-button" type="button">Sair</button></div>
       </nav>
     </header>
@@ -27,16 +27,22 @@
         <form class="report-filters" id="report-filters">
           <label class="field">De<input name="startDate" type="date" /></label>
           <label class="field">Até<input name="endDate" type="date" /></label>
-          <label class="field">Categoria<select name="category"><option value="">Todas</option><option value="ESTRADAS">Estradas</option><option value="LAMPADAS">Lâmpadas</option><option value="LUMINARIAS">Luminárias</option></select></label>
+          <label class="field">Categoria<select name="category"><option value="">Todas</option><option value="ESTRADAS">Estradas</option><option value="LAMPADAS">Lâmpadas</option><option value="LUMINARIAS">Luminárias</option><option value="OUTROS">Outros</option></select></label>
           <label class="field">Status<select name="status"><option value="">Todos</option></select></label>
+          <label class="field">Origem<select name="source"><option value="">Todas</option><option value="MUNICIPE">Munícipe</option><option value="VEREADOR">Vereador</option><option value="1DOC">1Doc</option><option value="ADMINISTRATIVO">Administração</option></select></label>
           <label class="field">Bairro<input name="neighborhood" type="search" maxlength="80" placeholder="Ex.: Centro" /></label>
+          <label class="field">Prioridade<select name="priority"><option value="">Todas</option><option value="BAIXA">Baixa</option><option value="NORMAL">Normal</option><option value="ALTA">Alta</option><option value="URGENTE">Urgente</option></select></label>
+          <label class="field">Equipe<select name="teamId"><option value="">Todas</option></select></label>
+          <label class="field">Funcionário<select name="employeeId"><option value="">Todos</option></select></label>
           <div class="report-filter-actions"><button class="button button-primary button-small" type="submit">Gerar relatório</button><button class="button button-secondary button-small" type="reset">Limpar</button></div>
         </form>
-        <div class="report-toolbar" aria-label="Ações do relatório"><button class="button button-secondary button-small" id="download-xlsx" type="button" disabled>Exportar Excel</button><button class="button button-secondary button-small" id="download-csv" type="button" disabled>Exportar CSV</button><button class="button button-primary button-small" id="print-report" type="button" disabled>Imprimir relatório</button></div>
+        <div class="report-toolbar" aria-label="Ações do relatório"><button class="button button-secondary button-small" id="download-xlsx" type="button" disabled>Exportar Excel</button><button class="button button-secondary button-small" id="download-csv" type="button" disabled>Exportar CSV</button><button class="button button-primary button-small" id="print-report" type="button" disabled>Imprimir / salvar em PDF</button></div>
         <p class="report-feedback" id="report-feedback" aria-live="polite"></p>
         <div id="report-print-area" class="report-print-area"><p class="dashboard-notice">Defina os filtros desejados e gere o relatório.</p></div>
       </section>
     </main>
+    <script src="/runtime-config.js"></script>
+    <script src="/capacitor-adapter.js"></script>
     <script src="/relatorios.js"></script>
     <script src="/pwa.js"></script>
   </body>

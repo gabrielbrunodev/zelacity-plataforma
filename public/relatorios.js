@@ -7,10 +7,11 @@ const downloadXlsx = document.querySelector('#download-xlsx');
 const downloadCsv = document.querySelector('#download-csv');
 const printButton = document.querySelector('#print-report');
 
-const statusLabels = { RECEBIDA: 'Recebida', AGUARDANDO_ANALISE: 'Aguardando análise', EM_ANALISE: 'Em análise', INFORMACOES_ADICIONAIS: 'Informações adicionais solicitadas', APROVADA: 'Aprovada', PROGRAMADA: 'Programada', EM_EXECUCAO: 'Em execução', CONCLUIDA: 'Concluída', INDEFERIDA: 'Indeferida', CANCELADA: 'Cancelada' };
+const statusLabels = { RECEBIDA: 'Recebida', EM_ANALISE: 'Em análise', ENCAMINHADA: 'Encaminhada', PENDENTE: 'Pendente', EM_ATENDIMENTO: 'Em atendimento', CONCLUIDA: 'Concluída', NAO_REALIZADA: 'Não realizada', CANCELADA: 'Cancelada' };
 const workOrderStatusLabels = { PROGRAMADA: 'Programada', ATRIBUIDA: 'Atribuída', EM_EXECUCAO: 'Em execução', EXECUTADA: 'Executada', PENDENCIA_IDENTIFICADA: 'Pendência identificada', CONFERENCIA: 'Conferência', CONCLUIDA: 'Concluída', CANCELADA: 'Cancelada' };
-const categoryLabels = { ESTRADAS: 'Manutenção de estradas', LAMPADAS: 'Troca de lâmpadas', LUMINARIAS: 'Instalação de luminárias' };
+const categoryLabels = { ESTRADAS: 'Manutenção de estrada', LAMPADAS: 'Iluminação pública', LUMINARIAS: 'Instalação de luminária', OUTROS: 'Outros' };
 const priorityLabels = { BAIXA: 'Baixa', NORMAL: 'Normal', ALTA: 'Alta', URGENTE: 'Urgente' };
+const sourceLabels = { MUNICIPE: 'Munícipe', VEREADOR: 'Vereador', '1DOC': '1Doc', ADMINISTRATIVO: 'Administração' };
 
 function element(tag, className, text) {
   const item = document.createElement(tag);
@@ -58,7 +59,11 @@ function filterDescription(filters) {
   if (filters.startDate || filters.endDate) parts.push(`Período: ${filters.startDate ? formatDate(`${filters.startDate}T12:00:00Z`) : 'início'} a ${filters.endDate ? formatDate(`${filters.endDate}T12:00:00Z`) : 'hoje'}`);
   if (filters.category) parts.push(`Categoria: ${categoryLabels[filters.category] || filters.category}`);
   if (filters.status) parts.push(`Status: ${statusLabels[filters.status] || filters.status}`);
+  if (filters.source) parts.push(`Origem: ${sourceLabels[filters.source] || filters.source}`);
   if (filters.neighborhood) parts.push(`Bairro: ${filters.neighborhood}`);
+  if (filters.priority) parts.push(`Prioridade: ${priorityLabels[filters.priority] || filters.priority}`);
+  if (filters.teamId) parts.push(`Equipe: ${filtersForm.elements.teamId.selectedOptions[0]?.textContent || filters.teamId}`);
+  if (filters.employeeId) parts.push(`Funcionário: ${filtersForm.elements.employeeId.selectedOptions[0]?.textContent || filters.employeeId}`);
   return parts.length ? parts.join(' · ') : 'Todos os registros';
 }
 
@@ -81,7 +86,7 @@ function createTable(title, headers, rows) {
   } else {
     rows.forEach((values) => {
       const row = document.createElement('tr');
-      values.forEach((value) => row.append(element('td', '', String(value ?? '—'))));
+      values.forEach((value, index) => { const cell = element('td', '', String(value ?? '—')); cell.dataset.label = headers[index] || ''; row.append(cell); });
       body.append(row);
     });
   }
@@ -93,8 +98,10 @@ function createSummary(report) {
   const grid = element('div', 'report-summary-grid');
   const items = [
     ['Total de solicitações', report.summary.total_requests, 'metric-total'],
+    ['Solicitações recebidas', report.summary.received_requests, 'metric-total'],
     ['Solicitações concluídas', report.summary.completed_requests, 'metric-completed'],
     ['Solicitações pendentes', report.summary.pending_requests, 'metric-awaiting'],
+    ['Solicitações atrasadas', report.summary.overdue_requests, 'metric-progress'],
     ['Tempo médio de atendimento', formatHours(report.summary.average_attendance_hours), 'metric-progress'],
   ];
   items.forEach(([label, value, accent]) => {
@@ -109,14 +116,17 @@ function renderReport(report) {
   printArea.replaceChildren();
   const heading = element('div', 'report-print-heading');
   heading.append(element('p', 'eyebrow', 'Zelacity Plataforma · Relatório administrativo'), element('h2', '', 'Consolidado de solicitações'), element('p', '', filterDescription(report.filters)), element('small', '', `Gerado em ${formatDate(report.generatedAt, true)}`));
-  const notes = element('p', 'report-definition', 'Pendentes são solicitações ainda abertas; indeferidas e canceladas não entram nesse total. O tempo médio considera solicitações concluídas.');
+  const notes = element('p', 'report-definition', 'Pendentes são solicitações ainda abertas; solicitações não realizadas e canceladas não entram nesse total. Atrasadas possuem prazo vencido e ainda não foram encerradas. O tempo médio considera solicitações concluídas.');
   const tables = element('div', 'report-tables');
   tables.append(
     createTable('Solicitações por período', ['Período', 'Total', 'Concluídas', 'Pendentes'], report.byPeriod.map((item) => [formatPeriod(item.period), item.total, item.completed, item.pending])),
     createTable('Solicitações por categoria', ['Categoria', 'Total', 'Concluídas', 'Pendentes'], report.byCategory.map((item) => [categoryLabels[item.category] || item.category, item.total, item.completed, item.pending])),
     createTable('Solicitações por bairro', ['Bairro', 'Total', 'Concluídas', 'Pendentes'], report.byNeighborhood.map((item) => [item.neighborhood, item.total, item.completed, item.pending])),
+    createTable('Solicitações por origem', ['Origem', 'Total', 'Concluídas', 'Pendentes'], report.bySource.map((item) => [sourceLabels[item.source] || item.source, item.total, item.completed, item.pending])),
+    createTable('Solicitações por funcionário', ['Funcionário', 'Total', 'Concluídas', 'Pendentes'], report.byEmployee.map((item) => [item.employee, item.total, item.completed, item.pending])),
+    createTable('Solicitações por equipe', ['Equipe', 'Total', 'Concluídas', 'Pendentes'], report.byTeam.map((item) => [item.team, item.total, item.completed, item.pending])),
     createTable('Serviços executados por equipe', ['Equipe', 'Serviços executados'], report.servicesByTeam.map((item) => [item.team, item.executed_services])),
-    createTable('Detalhamento das solicitações', ['Protocolo', 'Data', 'Categoria', 'Local', 'Bairro', 'Status', 'Prioridade', 'OS', 'Status da OS', 'Equipe', 'Concluída em', 'Tempo de atendimento'], report.requests.map((item) => [item.protocol, formatDate(item.created_at, true), categoryLabels[item.category] || item.category, item.location, item.neighborhood, statusLabels[item.status] || item.status, priorityLabels[item.priority] || item.priority, item.work_order_number || '—', workOrderStatusLabels[item.work_order_status] || item.work_order_status || '—', item.team || '—', formatDate(item.completed_at, true), formatHours(item.attendance_hours)])),
+    createTable('Detalhamento das solicitações', ['Protocolo', 'Data', 'Origem', 'Categoria', 'Local', 'Bairro', 'Status', 'Prioridade', 'OS', 'Status da OS', 'Equipe', 'Funcionário', 'Prazo', 'Concluída em', 'Tempo de atendimento'], report.requests.map((item) => [item.protocol, formatDate(item.created_at, true), sourceLabels[item.source] || item.source, categoryLabels[item.category] || item.category, item.location, item.neighborhood, statusLabels[item.status] || item.status, priorityLabels[item.priority] || item.priority, item.work_order_number || '—', workOrderStatusLabels[item.work_order_status] || item.work_order_status || '—', item.team || '—', item.employee || '—', formatDate(item.deadline_at), formatDate(item.completed_at, true), formatHours(item.attendance_hours)])),
   );
   printArea.append(heading, createSummary(report), notes, tables);
 }
@@ -140,11 +150,23 @@ async function loadReport() {
 
 function downloadReport(extension) {
   const link = document.createElement('a');
-  link.href = `/api/admin/reports/export.${extension}?${queryForFilters()}`;
+  link.href = window.zelacityApiUrl(`/api/admin/reports/export.${extension}?${queryForFilters()}`);
   link.download = '';
   document.body.append(link);
   link.click();
   link.remove();
+}
+
+async function loadFilterOptions() {
+  const [{ teams }, { users }, { categories }] = await Promise.all([api('/api/teams'), api('/api/users'), api('/api/categories')]);
+  categories
+    .filter((category) => !Array.from(filtersForm.elements.category.options).some((option) => option.value === category.code))
+    .forEach((category) => filtersForm.elements.category.add(new Option(category.name, category.code)));
+  teams.forEach((team) => filtersForm.elements.teamId.add(new Option(team.name, String(team.id))));
+  users
+    .filter((user) => user.role === 'MANUTENCAO' && user.active)
+    .sort((first, second) => first.name.localeCompare(second.name, 'pt-BR'))
+    .forEach((user) => filtersForm.elements.employeeId.add(new Option(user.team_name ? `${user.name} — ${user.team_name}` : user.name, String(user.id))));
 }
 
 Object.entries(statusLabels).forEach(([value, label]) => filtersForm.elements.status.add(new Option(label, value)));
@@ -160,6 +182,7 @@ async function initialize() {
     const { user } = await api('/api/auth/me');
     if (user.role !== 'ADMINISTRADOR') { window.location.replace('/painel.html'); return; }
     userElement.textContent = `Administrador · ${user.name}`;
+    await loadFilterOptions();
     await loadReport();
   } catch {
     window.location.replace('/login.html');

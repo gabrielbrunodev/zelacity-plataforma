@@ -6,10 +6,12 @@ const userElement = document.querySelector('#dashboard-user');
 const logoutButton = document.querySelector('#logout-button');
 
 const roleLabels = { VEREADOR: 'Vereador', MANUTENCAO: 'Manutenção', ADMINISTRADOR: 'Administrador' };
-const statusLabels = { RECEBIDA: 'Solicitação recebida', AGUARDANDO_ANALISE: 'Aguardando análise', EM_ANALISE: 'Em análise', INFORMACOES_ADICIONAIS: 'Informações adicionais solicitadas', APROVADA: 'Aprovada', PROGRAMADA: 'Programada', EM_EXECUCAO: 'Em execução', CONCLUIDA: 'Concluída', INDEFERIDA: 'Indeferida', CANCELADA: 'Cancelada' };
+const statusLabels = { RECEBIDA: 'Recebida', EM_ANALISE: 'Em análise', ENCAMINHADA: 'Encaminhada', PENDENTE: 'Pendente', EM_ATENDIMENTO: 'Em atendimento', CONCLUIDA: 'Concluída', NAO_REALIZADA: 'Não realizada', CANCELADA: 'Cancelada' };
 const priorityLabels = { BAIXA: 'Baixa', NORMAL: 'Normal', ALTA: 'Alta', URGENTE: 'Urgente' };
-const categoryLabels = { ESTRADAS: 'Manutenção de estradas', LAMPADAS: 'Troca de lâmpadas', LUMINARIAS: 'Instalação de luminárias' };
+const categoryLabels = { ESTRADAS: 'Manutenção de estrada', LAMPADAS: 'Iluminação pública', LUMINARIAS: 'Instalação de luminária', OUTROS: 'Outros' };
+const sourceLabels = { MUNICIPE: 'Munícipe', '1DOC': '1Doc', ADMINISTRATIVO: 'Administração', VEREADOR: 'Vereador' };
 const imageTypeLabels = { SOLICITACAO: 'Foto da solicitação', ANTES_EXECUCAO: 'Foto antes da execução', DEPOIS_EXECUCAO: 'Foto depois da execução' };
+const historyTypeLabels = { SOLICITACAO_CRIADA: 'Solicitação criada', ORDEM_SERVICO_CRIADA: 'Ordem de serviço criada', STATUS_ALTERADO: 'Status alterado', ATRIBUICAO: 'Atribuição', REDISTRIBUICAO: 'Redistribuição', PRIORIDADE_ALTERADA: 'Prioridade alterada', PRAZO_ALTERADO: 'Prazo alterado', SERVICO_INICIADO: 'Serviço iniciado', SERVICO_CONCLUIDO: 'Serviço concluído', IMPOSSIBILIDADE_INFORMADA: 'Impossibilidade informada', FOTO_ADICIONADA: 'Foto adicionada', OBSERVACAO_ADICIONADA: 'Observação adicionada', ATUALIZACAO_PUBLICA: 'Atualização pública', PROTOCOLO_1DOC_VINCULADO: 'Protocolo 1Doc vinculado', SOLICITACAO_REABERTA: 'Solicitação reaberta', ATUALIZACAO: 'Atualização registrada' };
 let googleMapsLoader = null;
 
 function element(tag, className, text) {
@@ -53,9 +55,9 @@ async function loadGoogleMaps() {
 }
 
 function mapMarkerStyle(status) {
-  if (status === 'EM_EXECUCAO') return { color: '#2e7d63', label: 'Em execução' };
+  if (status === 'EM_ATENDIMENTO') return { color: '#2e7d63', label: 'Em atendimento' };
   if (status === 'CONCLUIDA') return { color: '#3976a8', label: 'Concluída' };
-  if (['INDEFERIDA', 'CANCELADA'].includes(status)) return { color: '#77858b', label: statusLabels[status] || status };
+  if (['NAO_REALIZADA', 'CANCELADA'].includes(status)) return { color: '#77858b', label: statusLabels[status] || status };
   return { color: '#c98912', label: 'Pendente' };
 }
 
@@ -78,7 +80,7 @@ function createRequestMapSection() {
   const filters = document.createElement('form'); filters.className = 'map-filters';
   filters.innerHTML = '<label class="field">Categoria<select name="category"><option value="">Todas</option><option value="ESTRADAS">Estradas</option><option value="LAMPADAS">Lâmpadas</option><option value="LUMINARIAS">Luminárias</option></select></label><label class="field">Status<select name="status"><option value="">Todos</option></select></label><button class="button button-secondary button-small" type="submit">Atualizar mapa</button>';
   Object.entries(statusLabels).forEach(([value, label]) => filters.elements.status.add(new Option(label, value)));
-  const legend = element('div', 'map-legend'); [['Pendente', 'pending'], ['Em execução', 'progress'], ['Concluída', 'completed']].forEach(([label, type]) => { const item = element('span', `map-legend-item ${type}`); item.append(element('i'), document.createTextNode(label)); legend.append(item); });
+  const legend = element('div', 'map-legend'); [['Pendente', 'pending'], ['Em atendimento', 'progress'], ['Concluída', 'completed']].forEach(([label, type]) => { const item = element('span', `map-legend-item ${type}`); item.append(element('i'), document.createTextNode(label)); legend.append(item); });
   const mapElement = element('div', 'admin-request-map'); mapElement.tabIndex = 0; mapElement.setAttribute('aria-label', 'Mapa de solicitações com localização compartilhada');
   const feedback = element('p', 'map-feedback');
   section.append(heading, filters, legend, mapElement, feedback);
@@ -128,6 +130,12 @@ function statusBadge(status) {
   return element('span', `status-badge status-${String(status).toLowerCase()}`, statusLabels[status] || status);
 }
 
+function deadlineBadge(request) {
+  const labels = { ATRASADA: 'Atrasada', PROXIMA: 'Próxima do prazo', NO_PRAZO: 'No prazo', SEM_PRAZO: 'Sem prazo', ENCERRADA: 'Encerrada' };
+  const state = request.deadline_state || 'SEM_PRAZO';
+  return element('span', `deadline-badge deadline-${state.toLowerCase()}`, labels[state] || state);
+}
+
 function createImageGallery(images = []) {
   const section = element('section', 'image-gallery');
   section.append(element('h3', '', 'Imagens vinculadas'));
@@ -139,9 +147,9 @@ function createImageGallery(images = []) {
   images.forEach((image) => {
     const figure = element('figure', 'image-card');
     const preview = document.createElement('img');
-    preview.src = `/api/images/${image.id}`;
     preview.alt = imageTypeLabels[image.image_type] || 'Imagem da solicitação';
     preview.loading = 'lazy';
+    window.zelacityLoadProtectedImage(preview, `/api/images/${image.id}`).catch(() => { preview.alt = 'Imagem indisponível.'; });
     const caption = document.createElement('figcaption');
     caption.append(element('strong', '', imageTypeLabels[image.image_type] || image.image_type), element('span', '', `${image.uploaded_by_name} · ${formatDate(image.created_at, true)}`));
     if (image.work_order_number) caption.append(element('small', '', image.work_order_number));
@@ -162,10 +170,11 @@ function createHistoryTimeline(history = []) {
   history.forEach((event) => {
     const item = element('li', 'audit-item');
     const body = element('div', 'audit-body');
-    body.append(element('strong', '', event.action), element('span', '', `${event.user_name} · ${formatDate(event.created_at, true)}`));
+    body.append(element('strong', '', event.action), element('small', 'audit-change', historyTypeLabels[event.event_type] || 'Atualização registrada'), element('span', '', `${event.user_name} · ${formatDate(event.created_at, true)}`));
     if (event.previous_status || event.new_status) body.append(element('small', 'audit-change', `${statusLabels[event.previous_status] || event.previous_status || '—'} → ${statusLabels[event.new_status] || event.new_status || '—'}`));
     if (event.previous_priority || event.new_priority) body.append(element('small', 'audit-change', `${priorityLabels[event.previous_priority] || event.previous_priority || '—'} → ${priorityLabels[event.new_priority] || event.new_priority || '—'}`));
-    if (event.observation) body.append(element('p', '', event.observation));
+    if (event.observation) body.append(element('p', 'audit-observation audit-observation-internal', `Observação interna: ${event.observation}`));
+    if (event.public_update) body.append(element('p', 'audit-observation audit-observation-public', `Atualização pública: ${event.public_update}`));
     item.append(element('span', 'audit-dot'), body); list.append(item);
   });
   section.append(list);
@@ -178,12 +187,15 @@ function createMetric(label, value, accent = '') {
   return card;
 }
 
-function createFilters(onSubmit) {
+function createFilters(categories, teams, maintenanceUsers, onSubmit) {
   const form = document.createElement('form');
   form.className = 'dashboard-filters';
-  form.innerHTML = '<label class="field">Categoria<select name="category"><option value="">Todas</option><option value="ESTRADAS">Estradas</option><option value="LAMPADAS">Lâmpadas</option><option value="LUMINARIAS">Luminárias</option></select></label><label class="field">Status<select name="status"><option value="">Todos</option></select></label><label class="field">Prioridade<select name="priority"><option value="">Todas</option></select></label><label class="field">De<input name="startDate" type="date" /></label><label class="field">Até<input name="endDate" type="date" /></label><label class="field">Bairro<input name="neighborhood" type="text" placeholder="Ex.: Centro" /></label><label class="field">Protocolo<input name="protocol" type="search" placeholder="SOL-2026-00001" /></label><button class="button button-primary button-small" type="submit">Filtrar</button><button class="button button-secondary button-small" type="reset">Limpar</button>';
+  form.innerHTML = '<label class="field">Categoria<select name="category"><option value="">Todas</option></select></label><label class="field">Origem<select name="source"><option value="">Todas</option><option value="MUNICIPE">Munícipe</option><option value="VEREADOR">Vereador</option><option value="1DOC">1Doc</option><option value="ADMINISTRATIVO">Administração</option></select></label><label class="field">Status<select name="status"><option value="">Todos</option></select></label><label class="field">Prioridade<select name="priority"><option value="">Todas</option></select></label><label class="field">Equipe<select name="teamId"><option value="">Todas</option></select></label><label class="field">Funcionário<select name="employeeId"><option value="">Todos</option></select></label><label class="field">De<input name="startDate" type="date" /></label><label class="field">Até<input name="endDate" type="date" /></label><label class="field">Bairro<input name="neighborhood" type="text" placeholder="Ex.: Centro" /></label><label class="field">Protocolo do aplicativo ou 1Doc<input name="protocol" type="search" placeholder="2026-00154 ou 1234/2026" /></label><button class="button button-primary button-small" type="submit">Filtrar</button><button class="button button-secondary button-small" type="reset">Limpar</button>';
+  categories.forEach((category) => form.elements.category.add(new Option(category.name, category.code)));
   const statusSelect = form.elements.status; Object.entries(statusLabels).forEach(([value, label]) => statusSelect.add(new Option(label, value)));
-  const prioritySelect = form.elements.priority; Object.entries(priorityLabels).forEach(([value, label]) => prioritySelect.add(new Option(label, value)));
+  Object.entries(priorityLabels).forEach(([value, label]) => form.elements.priority.add(new Option(label, value)));
+  teams.forEach((team) => form.elements.teamId.add(new Option(team.name, team.id)));
+  maintenanceUsers.forEach((user) => form.elements.employeeId.add(new Option(user.name, user.id)));
   form.addEventListener('submit', (event) => { event.preventDefault(); onSubmit(Object.fromEntries(new FormData(form))); });
   form.addEventListener('reset', () => window.setTimeout(() => onSubmit({}), 0));
   return form;
@@ -200,10 +212,10 @@ function openDetails(request, teams, maintenanceUsers, onUpdate) {
   const data = element('dl', 'detail-list');
   const specific = (() => { try { return JSON.parse(request.specific_details || '{}'); } catch { return {}; } })();
   const fields = [
-    ['Solicitante', request.requester_name], ['Origem', request.requester_type === 'VEREADOR' ? 'Vereador' : 'Cidadão'], ['Telefone', request.phone], ['E-mail', request.requester_email || 'Não informado'],
+    ['Solicitante', request.requester_name], ['Origem', sourceLabels[request.source] || request.source || (request.requester_type === 'VEREADOR' ? 'Vereador' : 'Aplicativo')], ['Protocolo 1Doc', request.external_protocol || 'Não vinculado'], ['Telefone', request.phone], ['E-mail', request.requester_email || 'Não informado'],
     ['Categoria', categoryLabels[request.category] || request.category], ['Local', request.location], ['Localização GPS', request.latitude !== null && request.longitude !== null ? `${Number(request.latitude).toFixed(6)}, ${Number(request.longitude).toFixed(6)}` : 'Não compartilhada'], ['Bairro', request.neighborhood],
     ['Ponto de referência', request.reference], ['Descrição', request.description], ['Informação complementar', Object.values(specific).join(' · ') || '—'],
-    ['Responsável', request.responsible_name || 'Não atribuído'], ['Data de criação', formatDate(request.created_at, true)], ['Última atualização', formatDate(request.updated_at, true)],
+    ['Responsável', request.responsible_name || 'Não atribuído'], ['Data de recebimento no 1Doc', request.received_at ? formatDate(request.received_at) : '—'], ['Aberta em', formatDate(request.created_at, true)], ['Prazo', request.deadline_at ? formatDate(request.deadline_at) : 'Não definido'], ['Dias em aberto', `${request.open_days ?? 0} dia(s)`], ['Última atualização', formatDate(request.updated_at, true)],
   ];
   fields.forEach(([label, value]) => { const item = element('div'); item.append(element('dt', '', label), element('dd', '', value || '—')); data.append(item); });
   if (request.latitude !== null && request.longitude !== null) {
@@ -217,18 +229,32 @@ function openDetails(request, teams, maintenanceUsers, onUpdate) {
   }
   const actions = element('section', 'detail-management'); actions.append(element('h3', '', 'Gestão administrativa'));
   const status = selectOptions(Object.keys(statusLabels), request.status, statusLabels);
+  const statusField = element('label', 'field', 'Novo status'); statusField.append(status);
   const priority = selectOptions(Object.keys(priorityLabels), request.priority, priorityLabels);
-  const save = element('button', 'button button-secondary button-small', 'Salvar status e prioridade');
+  const priorityField = element('label', 'field', 'Prioridade'); priorityField.append(priority);
+  const deadline = document.createElement('input'); deadline.type = 'date'; deadline.value = request.deadline_at ? request.deadline_at.slice(0, 10) : ''; deadline.setAttribute('aria-label', 'Prazo da solicitação');
+  const deadlineField = element('label', 'field', 'Prazo'); deadlineField.append(deadline);
+  const externalProtocol = document.createElement('input'); externalProtocol.type = 'text'; externalProtocol.value = request.external_protocol || ''; externalProtocol.placeholder = 'Protocolo do 1Doc (opcional)'; externalProtocol.setAttribute('aria-label', 'Protocolo do 1Doc');
+  const internalObservation = document.createElement('textarea'); internalObservation.rows = 3; internalObservation.maxLength = 2000; internalObservation.placeholder = 'Visível somente para usuários autorizados.';
+  const internalObservationField = element('label', 'field field-wide', 'Observação interna'); internalObservationField.append(internalObservation);
+  const publicUpdate = document.createElement('textarea'); publicUpdate.rows = 3; publicUpdate.maxLength = 1000; publicUpdate.placeholder = 'Texto que poderá ser exibido na consulta por protocolo.';
+  const publicUpdateField = element('label', 'field field-wide', 'Atualização pública'); publicUpdateField.append(publicUpdate);
+  const administrativeMessage = document.createElement('textarea'); administrativeMessage.rows = 3; administrativeMessage.maxLength = 1000; administrativeMessage.placeholder = request.work_order_number ? 'Mensagem para a equipe responsável.' : 'Crie e atribua uma ordem de serviço antes de enviar mensagem.'; administrativeMessage.disabled = !request.work_order_number;
+  const administrativeMessageField = element('label', 'field field-wide', 'Mensagem administrativa para a equipe'); administrativeMessageField.append(administrativeMessage);
+  const externalProtocolField = element('label', 'field', 'Protocolo do 1Doc'); externalProtocolField.append(externalProtocol);
+  const save = element('button', 'button button-secondary button-small', 'Salvar atualização');
+  const sendAdministrativeMessage = element('button', 'button button-secondary button-small', 'Enviar mensagem à equipe'); sendAdministrativeMessage.type = 'button'; sendAdministrativeMessage.disabled = !request.work_order_number;
   const team = document.createElement('select'); team.add(new Option('Selecionar equipe', '')); teams.forEach((item) => team.add(new Option(item.name, item.id)));
   const assignee = document.createElement('select');
   const refreshAssignees = () => { assignee.replaceChildren(new Option('Selecionar responsável', '')); maintenanceUsers.filter((user) => { if (String(user.team_id) !== team.value) return false; try { const categories = JSON.parse(user.service_categories || '[]'); return !categories.length || categories.includes(request.category); } catch { return true; } }).forEach((user) => assignee.add(new Option(user.name, user.id))); };
   team.addEventListener('change', refreshAssignees);
   const schedule = document.createElement('input'); schedule.type = 'datetime-local'; schedule.setAttribute('aria-label', 'Data programada');
-  const assign = element('button', 'button button-primary button-small', 'Criar ordem de serviço');
+  const assign = element('button', 'button button-primary button-small', 'Atribuir para equipe ou funcionário');
   const feedback = element('p', 'inline-feedback');
-  save.addEventListener('click', async () => { try { await api(`/api/requests/${encodeURIComponent(request.protocol)}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: status.value, priority: priority.value }) }); feedback.textContent = 'Solicitação atualizada.'; onUpdate(); } catch (error) { feedback.textContent = error.message; } });
-  assign.addEventListener('click', async () => { try { if (!team.value || !assignee.value || !schedule.value) throw new Error('Informe equipe, responsável e data programada.'); await api(`/api/requests/${encodeURIComponent(request.protocol)}/work-orders`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ teamId: team.value, assignedUserId: assignee.value, scheduledAt: schedule.value }) }); feedback.textContent = 'Ordem de serviço criada e atribuída.'; onUpdate(); } catch (error) { feedback.textContent = error.message; } });
-  actions.append(status, priority, save, team, assignee, schedule, assign, feedback);
+  save.addEventListener('click', async () => { try { await api(`/api/requests/${encodeURIComponent(request.protocol)}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: status.value, priority: priority.value, deadlineAt: deadline.value, externalProtocol: externalProtocol.value, internalObservation: internalObservation.value, publicUpdate: publicUpdate.value }) }); feedback.textContent = 'Solicitação atualizada e registrada no histórico.'; onUpdate(); } catch (error) { feedback.textContent = error.message; } });
+  sendAdministrativeMessage.addEventListener('click', async () => { try { if (!administrativeMessage.value.trim()) throw new Error('Escreva a mensagem para a equipe.'); await api(`/api/work-orders/${encodeURIComponent(request.work_order_number)}/notifications`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: administrativeMessage.value }) }); administrativeMessage.value = ''; feedback.textContent = 'Mensagem enviada para a central interna da equipe.'; } catch (error) { feedback.textContent = error.message; } });
+  assign.addEventListener('click', async () => { try { if (!team.value || !schedule.value) throw new Error('Informe equipe e data programada. O funcionário é opcional.'); await api(`/api/requests/${encodeURIComponent(request.protocol)}/work-orders`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ teamId: team.value, assignedUserId: assignee.value || null, scheduledAt: schedule.value }) }); feedback.textContent = assignee.value ? 'Ordem atribuída ao funcionário selecionado.' : 'Ordem atribuída à equipe; todos os integrantes ativos poderão visualizá-la.'; onUpdate(); } catch (error) { feedback.textContent = error.message; } });
+  actions.append(statusField, priorityField, deadlineField, externalProtocolField, internalObservationField, publicUpdateField, administrativeMessageField, save, sendAdministrativeMessage, team, assignee, schedule, assign, feedback);
   dialog.append(header, data, createImageGallery(request.images), createHistoryTimeline(request.history), actions); overlay.append(dialog); document.body.append(overlay);
 }
 
@@ -236,9 +262,9 @@ function renderTable(requests, teams, maintenanceUsers, reload) {
   const container = element('div', 'request-table-wrap');
   const table = element('table', 'request-table');
   const head = document.createElement('thead'); const row = document.createElement('tr');
-  ['Protocolo', 'Data', 'Categoria', 'Local', 'Solicitante', 'Prioridade', 'Status', 'Responsável'].forEach((name) => row.append(element('th', '', name))); head.append(row);
+  ['Protocolo', 'Abertura', 'Origem', 'Categoria', 'Local', 'Solicitante', 'Prioridade', 'Prazo', 'Dias em aberto', 'Status', 'Responsável'].forEach((name) => row.append(element('th', '', name))); head.append(row);
   const body = document.createElement('tbody');
-  if (!requests.length) { const empty = document.createElement('tr'); const cell = document.createElement('td'); cell.colSpan = 8; cell.textContent = 'Nenhuma solicitação encontrada com estes filtros.'; empty.append(cell); body.append(empty); }
+  if (!requests.length) { const empty = document.createElement('tr'); const cell = document.createElement('td'); cell.colSpan = 11; cell.textContent = 'Nenhuma solicitação encontrada com estes filtros.'; empty.append(cell); body.append(empty); }
   requests.forEach((request) => {
     const row = document.createElement('tr');
     const protocolCell = document.createElement('td'); const button = element('button', 'protocol-link', request.protocol); button.type = 'button';
@@ -246,10 +272,18 @@ function renderTable(requests, teams, maintenanceUsers, reload) {
     protocolCell.append(button); row.append(protocolCell);
     const requester = element('td', '', request.requester_name);
     if (request.requester_type === 'VEREADOR') requester.append(document.createElement('br'), element('small', 'request-origin-label', 'Origem: Vereador'));
-    row.append(element('td', '', formatDate(request.created_at)), element('td', '', categoryLabels[request.category] || request.category), element('td', '', `${request.location} · ${request.neighborhood}`), requester, element('td', '', priorityLabels[request.priority] || request.priority));
+    const deadlineCell = element('td'); deadlineCell.append(element('span', '', request.deadline_at ? formatDate(request.deadline_at) : '—'), document.createElement('br'), deadlineBadge(request));
+    row.append(element('td', '', formatDate(request.created_at)), element('td', '', sourceLabels[request.source] || request.source || 'Munícipe'), element('td', '', categoryLabels[request.category] || request.category), element('td', '', `${request.location} · ${request.neighborhood}`), requester, element('td', '', priorityLabels[request.priority] || request.priority), deadlineCell, element('td', '', `${request.open_days ?? 0} dia(s)`));
     const statusCell = document.createElement('td'); statusCell.append(statusBadge(request.status)); row.append(statusCell); row.append(element('td', '', request.responsible_name || 'Não atribuído')); body.append(row);
   });
-  table.append(head, body); container.append(table); return container;
+  table.append(head, body); labelTableForMobile(table); container.append(table); return container;
+}
+
+function labelTableForMobile(table) {
+  const labels = Array.from(table.querySelectorAll('thead th'), (cell) => cell.textContent.trim());
+  table.querySelectorAll('tbody tr').forEach((row) => {
+    Array.from(row.cells).forEach((cell, index) => { cell.dataset.label = labels[index] || ''; });
+  });
 }
 
 function categoriesForUser(user) {
@@ -277,11 +311,13 @@ function syncInternalProfileForm(form) {
   }
 }
 
-function createEmployeeForm(teams, initial = {}) {
+function createEmployeeForm(teams, availableCategories, initial = {}) {
   const form = document.createElement('form'); form.className = 'user-form';
-  form.innerHTML = '<label class="field">Nome *<input name="name" required /></label><label class="field">Matrícula/identificação <small>opcional</small><input name="employeeNumber" /></label><label class="field" data-maintenance-only>Telefone *<input name="phone" type="tel" /></label><label class="field">E-mail *<input name="email" type="email" required /></label><label class="field" data-maintenance-only>Função *<input name="jobTitle" placeholder="Ex.: Eletricista" /></label><label class="field" data-maintenance-only>Setor *<input name="department" placeholder="Ex.: Iluminação pública" /></label><label class="field">Perfil<select name="role"><option value="VEREADOR">Vereador</option><option value="MANUTENCAO">Manutenção</option><option value="ADMINISTRADOR">Administrador</option></select></label><label class="field" data-maintenance-only>Equipe<select name="teamId"></select></label><fieldset class="service-category-field" data-maintenance-only><legend>Serviços sob responsabilidade</legend><label><input type="checkbox" name="serviceCategories" value="ESTRADAS" /> Estradas</label><label><input type="checkbox" name="serviceCategories" value="LAMPADAS" /> Iluminação</label><label><input type="checkbox" name="serviceCategories" value="LUMINARIAS" /> Luminárias</label></fieldset>';
+  form.innerHTML = '<label class="field">Nome *<input name="name" required /></label><label class="field">Usuário *<input name="username" autocomplete="username" pattern="[A-Za-z0-9._-]{3,60}" required /></label><label class="field">Matrícula/identificação <small>opcional</small><input name="employeeNumber" /></label><label class="field" data-maintenance-only>Telefone *<input name="phone" type="tel" /></label><label class="field" data-maintenance-only>Função *<input name="jobTitle" placeholder="Ex.: Eletricista" /></label><label class="field" data-maintenance-only>Setor *<input name="department" placeholder="Ex.: Iluminação pública" /></label><label class="field">Perfil<select name="role"><option value="VEREADOR">Vereador</option><option value="MANUTENCAO">Manutenção</option><option value="ADMINISTRADOR">Administrador</option></select></label><label class="field" data-maintenance-only>Equipe<select name="teamId"></select></label><fieldset class="service-category-field" data-maintenance-only><legend>Serviços sob responsabilidade</legend><label><input type="checkbox" name="serviceCategories" value="ESTRADAS" /> Estradas</label><label><input type="checkbox" name="serviceCategories" value="LAMPADAS" /> Iluminação</label><label><input type="checkbox" name="serviceCategories" value="LUMINARIAS" /> Luminárias</label></fieldset>';
+  const categoryFieldset = form.querySelector('.service-category-field'); categoryFieldset.replaceChildren(element('legend', '', 'Serviços sob responsabilidade'));
+  availableCategories.forEach((category) => { const label = document.createElement('label'); const input = document.createElement('input'); input.type = 'checkbox'; input.name = 'serviceCategories'; input.value = category.code; label.append(input, ` ${category.name}`); categoryFieldset.append(label); });
   addTeamOptions(form.elements.teamId, teams, initial.team_id || initial.teamId || '');
-  ['name', 'employeeNumber', 'phone', 'email', 'jobTitle', 'department'].forEach((name) => { if (initial[name] ?? initial[{ employeeNumber: 'employee_number', jobTitle: 'job_title' }[name]]) form.elements[name].value = initial[name] ?? initial[{ employeeNumber: 'employee_number', jobTitle: 'job_title' }[name]]; });
+  ['name', 'username', 'employeeNumber', 'phone', 'jobTitle', 'department'].forEach((name) => { if (initial[name] ?? initial[{ employeeNumber: 'employee_number', jobTitle: 'job_title' }[name]]) form.elements[name].value = initial[name] ?? initial[{ employeeNumber: 'employee_number', jobTitle: 'job_title' }[name]]; });
   form.elements.role.value = initial.role || 'MANUTENCAO';
   const categories = categoriesForUser(initial); form.querySelectorAll('[name="serviceCategories"]').forEach((input) => { input.checked = categories.includes(input.value); });
   form.elements.role.addEventListener('change', () => syncInternalProfileForm(form));
@@ -289,7 +325,7 @@ function createEmployeeForm(teams, initial = {}) {
   return form;
 }
 
-function renderUserManagement(users, teams, reload) {
+function renderUserManagement(users, teams, categories, reload) {
   const section = element('section', 'dashboard-section user-management');
   section.append(element('p', 'eyebrow', 'Acesso interno'), element('h2', '', 'Funcionários e equipes'), element('p', 'dashboard-notice', 'Somente administradores gerenciam acessos. Funcionários não podem conceder permissões administrativas a si próprios.'));
   const teamForm = document.createElement('form'); teamForm.className = 'team-form';
@@ -297,7 +333,7 @@ function renderUserManagement(users, teams, reload) {
   const teamFeedback = element('p', 'inline-feedback'); teamForm.append(teamFeedback);
   teamForm.addEventListener('submit', async (event) => { event.preventDefault(); try { await api('/api/teams', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.fromEntries(new FormData(teamForm))) }); teamFeedback.textContent = 'Equipe criada com sucesso.'; reload(); } catch (error) { teamFeedback.textContent = error.message; } });
   section.append(teamForm, element('h3', '', 'Cadastrar acesso interno'));
-  const form = createEmployeeForm(teams);
+  const form = createEmployeeForm(teams, categories);
   const password = document.createElement('label'); password.className = 'field'; password.innerHTML = 'Senha inicial *<input name="password" type="password" minlength="8" required />'; form.append(password);
   const submit = element('button', 'button button-primary button-small', 'Cadastrar usuário'); submit.type = 'submit'; form.append(submit);
   const feedback = element('p', 'inline-feedback'); form.append(feedback);
@@ -308,7 +344,7 @@ function renderUserManagement(users, teams, reload) {
     const summary = element('div', 'user-list-summary');
     const text = element('div'); text.append(element('strong', '', user.name), element('p', '', `${roleLabels[user.role] || user.role} · ${user.job_title || 'Função não informada'}${user.team_name ? ` · ${user.team_name}` : ''}`), element('small', '', user.active ? 'Acesso ativo' : 'Acesso desativado'));
     const edit = element('button', 'button button-secondary button-small', 'Editar'); edit.type = 'button'; summary.append(text, edit); card.append(summary);
-    const editor = createEmployeeForm(teams, user); editor.hidden = true;
+    const editor = createEmployeeForm(teams, categories, user); editor.hidden = true;
     const active = document.createElement('label'); active.className = 'field'; active.innerHTML = '<span>Status do acesso</span><select name="active"><option value="true">Ativo</option><option value="false">Inativo</option></select>'; active.querySelector('select').value = user.active ? 'true' : 'false'; editor.append(active);
     const reset = document.createElement('label'); reset.className = 'field'; reset.innerHTML = 'Nova senha <small>opcional</small><input name="password" type="password" minlength="8" />'; editor.append(reset);
     const save = element('button', 'button button-primary button-small', 'Salvar alterações'); save.type = 'submit'; editor.append(save);
@@ -320,24 +356,76 @@ function renderUserManagement(users, teams, reload) {
   section.append(teamForm, form, userList); return section;
 }
 
+function renderInternalRequestRegistration(categories, reload, source) {
+  const isOneDoc = source === '1DOC';
+  const section = element('section', 'dashboard-section');
+  section.append(
+    element('p', 'eyebrow', 'Cadastro administrativo'),
+    element('h2', '', isOneDoc ? 'Nova solicitação do 1Doc' : 'Nova solicitação administrativa'),
+    element('p', 'dashboard-notice', isOneDoc ? 'Registre manualmente uma demanda recebida pelo 1Doc. O protocolo do 1Doc permanece vinculado ao protocolo gerado pelo aplicativo.' : 'Registre uma solicitação criada diretamente pela Administração. A origem será registrada automaticamente como Administração.'),
+  );
+  const form = document.createElement('form'); form.className = 'user-form';
+  form.innerHTML = `<input name="source" type="hidden" value="${source}" />${isOneDoc ? '<label class="field">Número/protocolo do 1Doc *<input name="externalProtocol" maxlength="120" placeholder="Ex.: 1234/2026" required /></label><label class="field">Data de recebimento *<input name="receivedAt" type="date" required /></label>' : ''}<label class="field">Nome do solicitante *<input name="name" required /></label><label class="field">Telefone ${isOneDoc ? '<small>opcional</small>' : '*'}<input name="phone" type="tel" ${isOneDoc ? '' : 'required'} /></label><label class="field">E-mail <small>opcional</small><input name="email" type="email" /></label><label class="field">Categoria *<select name="serviceType" required><option value="ESTRADAS">Manutenção de estradas</option><option value="LAMPADAS">Troca de lâmpadas</option><option value="LUMINARIAS">Instalação de luminárias</option></select></label><label class="field">Prioridade *<select name="priority"><option value="BAIXA">Baixa</option><option value="NORMAL" selected>Normal</option><option value="ALTA">Alta</option><option value="URGENTE">Urgente</option></select></label><label class="field">Prazo <small>opcional; substitui o prazo padrão da categoria</small><input name="deadlineAt" type="date" /></label><label class="field field-wide">Endereço/local *<input name="location" required /></label><label class="field">Bairro *<input name="neighborhood" required /></label><label class="field">Referência <small>opcional</small><input name="reference" /></label><label class="field field-wide">Descrição *<textarea name="description" rows="3" required></textarea></label><label class="field field-wide">Foto ou anexo de imagem <small>opcional: JPG, PNG ou WEBP, até 5 MB</small><input name="requestPhoto" type="file" accept="image/jpeg,image/png,image/webp" /></label><label class="field field-wide">Observações internas <small>não aparecem na consulta pública</small><textarea name="internalObservation" rows="3" maxlength="2000"></textarea></label>`;
+  const categorySelect = form.elements.serviceType; categorySelect.replaceChildren(); categories.filter((category) => category.active).forEach((category) => categorySelect.add(new Option(category.name, category.code)));
+  const submit = element('button', 'button button-primary button-small', isOneDoc ? 'Registrar solicitação do 1Doc' : 'Registrar solicitação administrativa'); submit.type = 'submit';
+  const feedback = element('p', 'inline-feedback'); form.append(submit, feedback);
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    try {
+      const result = await api('/api/admin/requests', { method: 'POST', body: new FormData(form) });
+      feedback.textContent = isOneDoc ? `Solicitação registrada. Protocolo do aplicativo: ${result.protocol}. Protocolo 1Doc vinculado: ${form.elements.externalProtocol.value}.` : `Solicitação registrada. Protocolo do aplicativo: ${result.protocol}. Origem: Administração.`; form.reset(); reload();
+    } catch (error) { feedback.textContent = error.message; }
+  });
+  section.append(form); return section;
+}
+
+function renderCategoryManagement(categories, reload) {
+  const section = element('section', 'dashboard-section');
+  section.append(element('p', 'eyebrow', 'Configuração'), element('h2', '', 'Categorias de serviço'), element('p', 'dashboard-notice', 'Cadastre novas categorias ou altere nome e disponibilidade sem afetar solicitações já registradas.'));
+  const createForm = document.createElement('form'); createForm.className = 'team-form'; createForm.innerHTML = '<label class="field">Nova categoria<input name="name" minlength="3" placeholder="Ex.: Limpeza urbana" required /></label><label class="field">Prazo padrão <small>em dias; opcional</small><input name="defaultDeadlineDays" type="number" min="1" max="3650" /></label><button class="button button-secondary button-small" type="submit">Adicionar categoria</button>';
+  const createFeedback = element('p', 'inline-feedback'); createForm.append(createFeedback);
+  createForm.addEventListener('submit', async (event) => { event.preventDefault(); try { await api('/api/admin/categories', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.fromEntries(new FormData(createForm))) }); createFeedback.textContent = 'Categoria cadastrada.'; reload(); } catch (error) { createFeedback.textContent = error.message; } });
+  section.append(createForm);
+  categories.forEach((category) => {
+    const form = document.createElement('form'); form.className = 'team-form';
+    const code = element('strong', 'protocol-text', category.code);
+    const name = document.createElement('label'); name.className = 'field'; name.innerHTML = 'Nome exibido<input name="name" required />'; name.querySelector('input').value = category.name;
+    const active = document.createElement('label'); active.className = 'field'; active.innerHTML = '<span>Disponível para novos registros</span><select name="active"><option value="true">Sim</option><option value="false">Não</option></select>'; active.querySelector('select').value = category.active ? 'true' : 'false';
+    const defaultDeadline = document.createElement('label'); defaultDeadline.className = 'field'; defaultDeadline.innerHTML = 'Prazo padrão <small>em dias; opcional</small><input name="defaultDeadlineDays" type="number" min="1" max="3650" />'; defaultDeadline.querySelector('input').value = category.default_deadline_days || '';
+    const save = element('button', 'button button-secondary button-small', 'Salvar'); save.type = 'submit'; const feedback = element('p', 'inline-feedback');
+    form.append(code, name, active, defaultDeadline, save, feedback);
+    form.addEventListener('submit', async (event) => { event.preventDefault(); try { await api(`/api/admin/categories/${category.code}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.fromEntries(new FormData(form))) }); feedback.textContent = 'Categoria atualizada.'; reload(); } catch (error) { feedback.textContent = error.message; } });
+    section.append(form);
+  });
+  return section;
+}
+
 async function renderAdministrator() {
   title.textContent = 'Painel administrativo';
   description.textContent = 'Visão consolidada para priorizar, analisar e encaminhar as solicitações municipais.';
-  const [teamsResult, usersResult] = await Promise.all([api('/api/teams'), api('/api/users')]);
+  const [teamsResult, usersResult, categoriesResult] = await Promise.all([api('/api/teams'), api('/api/users'), api('/api/admin/categories')]);
+  categoriesResult.categories.forEach((category) => { categoryLabels[category.code] = category.name; });
   const teams = teamsResult.teams;
   const maintenanceUsers = usersResult.users.filter((user) => user.role === 'MANUTENCAO' && user.active);
   content.replaceChildren();
   const requestMap = createRequestMapSection();
-  const filtersSection = element('section', 'dashboard-section filters-section'); filtersSection.append(element('h2', '', 'Solicitações')); const tableHost = element('div');
+  const filtersSection = element('section', 'dashboard-section filters-section'); filtersSection.id = 'solicitacoes'; filtersSection.append(element('h2', '', 'Solicitações')); const tableHost = element('div');
   const loadDashboard = async (filters = {}) => {
     const query = new URLSearchParams(Object.entries(filters).filter(([, value]) => value));
     const dashboard = await api(`/api/admin/dashboard?${query}`);
     const statistics = dashboard.statistics;
     const metrics = element('div', 'metrics-grid');
-    metrics.append(createMetric('Total de solicitações', statistics.total, 'metric-total'), createMetric('Aguardando análise', statistics.awaiting_analysis, 'metric-awaiting'), createMetric('Aprovadas', statistics.approved, 'metric-approved'), createMetric('Programadas', statistics.scheduled, 'metric-scheduled'), createMetric('Em execução', statistics.in_progress, 'metric-progress'), createMetric('Concluídas', statistics.completed, 'metric-completed'), createMetric('Indeferidas', statistics.rejected, 'metric-rejected'), createMetric('Canceladas', statistics.cancelled, 'metric-cancelled'));
-    tableHost.replaceChildren(metrics, renderTable(dashboard.requests, teams, maintenanceUsers, () => loadDashboard(filters)));
+    metrics.append(createMetric('Total de solicitações', statistics.total, 'metric-total'), createMetric('Recebidas', statistics.received, 'metric-awaiting'), createMetric('Pendentes', statistics.pending, 'metric-scheduled'), createMetric('Em atendimento', statistics.in_progress, 'metric-progress'), createMetric('Concluídas', statistics.completed, 'metric-completed'), createMetric('Atrasadas', statistics.overdue, 'metric-rejected'));
+    const breakdowns = element('div', 'dashboard-breakdowns');
+    const summary = (title, rows, labels) => { const box = element('section', 'dashboard-breakdown'); box.append(element('h3', '', title)); rows.forEach((row) => { const line = element('p', 'breakdown-line'); line.append(element('span', '', labels[row.key] || row.key || 'Não informado'), element('strong', '', row.total)); box.append(line); }); return box; };
+    breakdowns.append(summary('Solicitações por categoria', statistics.byCategory, categoryLabels), summary('Solicitações por origem', statistics.bySource, sourceLabels));
+    tableHost.replaceChildren(metrics, breakdowns, renderTable(dashboard.requests, teams, maintenanceUsers, () => loadDashboard(filters)));
   };
-  filtersSection.append(createFilters(loadDashboard), tableHost); content.append(requestMap.section, filtersSection, renderUserManagement(usersResult.users, teams, renderAdministrator)); await Promise.all([requestMap.load(), loadDashboard()]);
+  const manual = renderInternalRequestRegistration(categoriesResult.categories, renderAdministrator, '1DOC'); manual.id = 'nova-solicitacao';
+  const administrativeManual = renderInternalRequestRegistration(categoriesResult.categories, renderAdministrator, 'ADMINISTRATIVO'); administrativeManual.id = 'nova-solicitacao-administrativa';
+  const users = renderUserManagement(usersResult.users, teams, categoriesResult.categories, renderAdministrator); users.id = 'funcionarios';
+  const categories = renderCategoryManagement(categoriesResult.categories, renderAdministrator); categories.id = 'categorias'; categories.querySelector('h2').textContent = 'Categorias e configurações';
+  filtersSection.append(createFilters(categoriesResult.categories, teams, maintenanceUsers, loadDashboard), tableHost); content.append(requestMap.section, filtersSection, manual, administrativeManual, users, categories); await Promise.all([requestMap.load(), loadDashboard()]);
 }
 
 async function renderMaintenance(user) {
@@ -365,14 +453,16 @@ async function renderCouncilMember(user) {
   } else {
     const wrap = element('div', 'request-table-wrap'); const table = element('table', 'request-table council-request-table');
     const head = document.createElement('thead'); const row = document.createElement('tr');
-    ['Protocolo', 'Data', 'Serviço', 'Local', 'Prioridade', 'Status', 'Última atualização'].forEach((label) => row.append(element('th', '', label))); head.append(row);
+    ['Protocolo', 'Data', 'Serviço', 'Local', 'Prioridade', 'Status', 'Última atualização', 'Histórico'].forEach((label) => row.append(element('th', '', label))); head.append(row);
     const body = document.createElement('tbody');
     requests.forEach((request) => {
       const row = document.createElement('tr');
       row.append(element('td', 'protocol-text', request.protocol), element('td', '', formatDate(request.created_at)), element('td', '', categoryLabels[request.category] || request.category), element('td', '', `${request.location} · ${request.neighborhood}`), element('td', '', priorityLabels[request.priority] || request.priority));
-      const status = document.createElement('td'); status.append(statusBadge(request.status)); row.append(status, element('td', '', formatDate(request.updated_at, true))); body.append(row);
+      const status = document.createElement('td'); status.append(statusBadge(request.status));
+      const historyLink = element('a', 'button button-secondary button-small', 'Consultar'); historyLink.href = `/acompanhar.html?protocol=${encodeURIComponent(request.protocol)}`;
+      row.append(status, element('td', '', formatDate(request.updated_at, true)), historyLink); body.append(row);
     });
-    table.append(head, body); wrap.append(table); section.append(wrap);
+    table.append(head, body); labelTableForMobile(table); wrap.append(table); section.append(wrap);
   }
   content.replaceChildren(actions, section);
 }

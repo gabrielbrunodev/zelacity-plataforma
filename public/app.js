@@ -6,7 +6,6 @@ const formCard = document.querySelector('#request-form-card');
 const protocolNumber = document.querySelector('#protocol-number');
 const confirmationMessage = document.querySelector('#confirmation-message');
 const confirmationActions = document.querySelector('#confirmation-actions');
-const newRequestButton = document.querySelector('#new-request-button');
 const submitButton = requestForm.querySelector('[type="submit"]');
 const requestLocationButton = document.querySelector('#request-location-button');
 const requestLocationFeedback = document.querySelector('#request-location-feedback');
@@ -15,6 +14,7 @@ const requestLongitude = document.querySelector('#request-longitude');
 const requestLocationField = document.querySelector('[name="location"]');
 const requestNeighborhoodField = document.querySelector('[name="neighborhood"]');
 const requestMapButton = document.querySelector('#request-map-button');
+const requestMapWrapper = document.querySelector('#request-map-wrapper');
 const requestMapEmbed = document.querySelector('#request-map-embed');
 const requestMapElement = document.querySelector('#request-map');
 const navActions = document.querySelector('#nav-actions');
@@ -27,6 +27,20 @@ let googleMapsLoader = null;
 let currentUser = null;
 
 const roleLabels = { VEREADOR: 'Vereador', MANUTENCAO: 'Manutenção', ADMINISTRADOR: 'Administração' };
+
+async function loadActiveCategories() {
+  try {
+    const response = await fetch('/api/categories');
+    const { categories } = await response.json();
+    if (!response.ok || !Array.isArray(categories)) return;
+    const selected = serviceType.value;
+    serviceType.replaceChildren(new Option('Selecione o serviço', ''));
+    categories.forEach((category) => serviceType.add(new Option(category.name, category.code)));
+    serviceType.value = selected;
+  } catch {
+    // Mantém as opções iniciais caso a configuração não esteja disponível.
+  }
+}
 
 async function loadCurrentUser() {
   try {
@@ -141,7 +155,7 @@ function createRequestMap() {
 async function openRequestMap() {
   requestMapButton.disabled = true; requestLocationFeedback.textContent = 'Carregando o mapa…';
   try {
-    await loadGoogleMaps(); requestMapEmbed.hidden = true; requestMapElement.hidden = false; createRequestMap();
+    await loadGoogleMaps(); requestMapWrapper.hidden = false; requestMapEmbed.hidden = true; requestMapElement.hidden = false; createRequestMap();
     requestMapButton.textContent = 'Mapa aberto';
     requestLocationFeedback.textContent = requestLatitude.value ? 'Clique no mapa para ajustar o ponto selecionado.' : 'Clique no mapa para marcar a localização da solicitação.';
     requestMapElement.focus({ preventScroll: true });
@@ -149,20 +163,26 @@ async function openRequestMap() {
   finally { requestMapButton.disabled = false; }
 }
 
-function renderConfirmation(protocol, formData) {
-  protocolNumber.textContent = protocol;
-  confirmationMessage.textContent = 'Guarde este número para acompanhar o atendimento da Prefeitura.';
-  confirmationActions.replaceChildren();
-  const text = encodeURIComponent(`Minha solicitação na Zelacity Plataforma foi registrada. Protocolo: ${protocol}. Guarde este número para acompanhamento.`);
-  const whatsapp = document.createElement('a');
-  whatsapp.className = 'button button-secondary button-small'; whatsapp.href = `https://wa.me/?text=${text}`; whatsapp.target = '_blank'; whatsapp.rel = 'noopener'; whatsapp.textContent = 'Enviar por WhatsApp';
-  confirmationActions.append(whatsapp);
-  const email = String(formData.get('email') || '').trim();
-  if (email) {
-    const mail = document.createElement('a');
-    mail.className = 'button button-secondary button-small'; mail.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent('Protocolo da sua solicitação')}&body=${text}`; mail.textContent = 'Enviar por e-mail';
-    confirmationActions.append(mail);
+async function copyProtocol(protocol, feedback) {
+  try {
+    await navigator.clipboard.writeText(protocol);
+    feedback.textContent = 'Protocolo copiado.';
+  } catch {
+    const input = document.createElement('textarea'); input.value = protocol; input.setAttribute('readonly', ''); input.style.position = 'fixed'; input.style.opacity = '0'; document.body.append(input); input.select(); document.execCommand('copy'); input.remove();
+    feedback.textContent = 'Protocolo copiado.';
   }
+}
+
+function renderConfirmation(protocol) {
+  protocolNumber.textContent = protocol;
+  confirmationMessage.textContent = 'Guarde este número para acompanhar sua solicitação.';
+  confirmationActions.replaceChildren();
+  const copy = document.createElement('button'); copy.className = 'button button-secondary button-small'; copy.type = 'button'; copy.textContent = 'Copiar protocolo';
+  const tracking = document.createElement('a'); tracking.className = 'button button-primary button-small'; tracking.href = `/acompanhar.html?protocol=${encodeURIComponent(protocol)}`; tracking.textContent = 'Acompanhar solicitação';
+  const home = document.createElement('a'); home.className = 'button button-secondary button-small'; home.href = '/'; home.textContent = 'Voltar ao início';
+  const feedback = document.createElement('p'); feedback.className = 'inline-feedback'; feedback.setAttribute('aria-live', 'polite');
+  copy.addEventListener('click', () => copyProtocol(protocol, feedback));
+  confirmationActions.append(copy, tracking, home, feedback);
 }
 
 document.querySelectorAll('[data-service]').forEach((card) => card.addEventListener('click', () => { serviceType.value = card.dataset.service; }));
@@ -175,18 +195,12 @@ requestForm.addEventListener('submit', async (event) => {
     const response = await fetch('/api/requests', { method: 'POST', body: formData });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Não foi possível registrar a solicitação.');
-    renderConfirmation(result.protocol, formData); requestForm.hidden = true; confirmation.hidden = false;
+    renderConfirmation(result.protocol); requestForm.hidden = true; confirmation.hidden = false;
     formCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
   } catch (error) { showError(error.message); }
   finally { submitButton.disabled = false; submitButton.innerHTML = 'Registrar solicitação <span aria-hidden="true">→</span>'; }
 });
-newRequestButton.addEventListener('click', () => {
-  requestForm.reset(); requestLocationFeedback.textContent = '';
-  if (currentUser?.role === 'VEREADOR') requestForm.elements.name.value = currentUser.name;
-  if (requestMarker) requestMarker.setMap(null);
-  requestMarker = null; clearError(); confirmation.hidden = true; requestForm.hidden = false;
-  document.querySelector('[name="name"]').focus();
-});
 requestLocationButton.addEventListener('click', captureLocation);
 requestMapButton.addEventListener('click', openRequestMap);
 loadCurrentUser();
+loadActiveCategories();

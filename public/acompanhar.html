@@ -18,7 +18,7 @@
     <header class="site-header">
       <nav class="nav container" aria-label="Navegação principal">
         <a class="brand" href="/" aria-label="Zelacity Plataforma - início">
-          <span class="brand-logo-frame"><img class="brand-logo" src="/assets/zelacity-logo.jpg" alt="" /></span>
+          <span class="brand-logo-frame"><img class="brand-logo" src="/assets/zelacity-logo.png" alt="Logo da Zelacity" /></span>
           <span class="brand-name">Zelacity <span>Plataforma</span></span>
         </a>
         <a class="nav-link" href="/">Nova solicitação</a>
@@ -31,12 +31,10 @@
           <a class="back-link" href="/">← Voltar para o início</a>
           <p class="eyebrow">Consulta pública</p>
           <h1>Acompanhe sua<br /><em>solicitação.</em></h1>
-          <p class="tracking-description">Informe o protocolo e os últimos 4 dígitos do telefone usado no registro. Nenhuma informação poderá ser alterada nesta área.</p>
+          <p class="tracking-description">Informe somente o número do protocolo para consultar o andamento da solicitação.</p>
           <form class="lookup-form" id="lookup-form" novalidate>
             <label for="protocol-input">Número do protocolo</label>
-            <div class="lookup-controls"><input id="protocol-input" name="protocol" type="text" autocomplete="off" placeholder="SOL-2026-00001" required /><button class="button button-primary" type="submit">Consultar <span aria-hidden="true">→</span></button></div>
-            <label for="phone-last-four-input">Últimos 4 dígitos do telefone</label>
-            <input id="phone-last-four-input" name="phoneLastFour" type="text" inputmode="numeric" autocomplete="off" maxlength="4" pattern="[0-9]{4}" placeholder="0000" required />
+            <div class="lookup-controls"><input id="protocol-input" name="protocol" type="text" inputmode="text" autocapitalize="characters" spellcheck="false" autocomplete="off" placeholder="2026-00154" required /><button class="button button-primary" type="submit">Consultar <span aria-hidden="true">→</span></button></div>
             <p class="lookup-error" id="lookup-error" role="alert" hidden></p>
           </form>
         </div>
@@ -44,16 +42,14 @@
 
       <section class="request-result section" id="request-result" aria-live="polite" hidden>
         <div class="container narrow-container">
-          <div class="result-heading"><div><p class="eyebrow">Situação da solicitação</p><h2 id="result-protocol">SOL-2026-00001</h2></div><span class="status-badge" id="result-status">Recebida</span></div>
-          <div class="result-grid">
-            <article class="details-card"><h3>Detalhes registrados</h3><dl class="request-details"><div><dt>Tipo de serviço</dt><dd id="result-category"></dd></div><div><dt>Local</dt><dd id="result-location"></dd></div><div><dt>Data da solicitação</dt><dd id="result-created-at"></dd></div><div><dt>Prioridade</dt><dd id="result-priority"></dd></div><div><dt>Última atualização</dt><dd id="result-updated-at"></dd></div></dl><p class="read-only-note"><span aria-hidden="true">⌁</span> Esta é uma consulta de acompanhamento. Os dados da solicitação não podem ser alterados.</p></article>
-            <article class="progress-card"><p class="eyebrow">Andamento</p><h3>Fluxo de atendimento</h3><ol class="progress-timeline" id="progress-timeline"><li data-status="RECEBIDA"><span>1</span><strong>Solicitação recebida</strong></li><li data-status="EM_ANALISE"><span>2</span><strong>Em análise</strong></li><li data-status="PROGRAMADA"><span>3</span><strong>Programada</strong></li><li data-status="EM_EXECUCAO"><span>4</span><strong>Em execução</strong></li><li data-status="CONCLUIDA"><span>5</span><strong>Concluída</strong></li></ol></article>
-          </div>
-          <article class="request-history-card"><p class="eyebrow">Histórico</p><h3>Andamento registrado</h3><ol class="audit-list" id="request-history"></ol></article>
+          <div class="result-heading"><div><p class="eyebrow">Acompanhamento público</p><h2 id="result-protocol">SOLICITAÇÃO #2026-00154</h2></div><span class="status-badge" id="result-status">Recebida</span></div>
+          <article class="details-card public-request-card"><h3>Informações da solicitação</h3><dl class="request-details"><div><dt>Categoria</dt><dd id="result-category"></dd></div><div><dt>Local</dt><dd id="result-location"></dd></div><div><dt>Solicitado em</dt><dd id="result-created-at"></dd></div><div><dt>Status</dt><dd id="result-status-detail"></dd></div><div><dt>Última atualização</dt><dd id="result-updated-at"></dd></div></dl><div class="public-status-message"><strong>Mensagem</strong><p id="result-message"></p></div><section class="public-history" id="public-history" hidden><h3>Atualizações públicas</h3><ol class="audit-list" id="public-history-list"></ol></section><p class="read-only-note"><span aria-hidden="true">⌁</span> Esta consulta mostra apenas informações públicas sobre o andamento.</p></article>
         </div>
       </section>
     </main>
     <footer class="site-footer"><div class="container"><span>© 2026 Zelacity Plataforma</span><span>Sistema Municipal de Solicitações e Ordens de Serviço</span></div></footer>
+    <script src="/runtime-config.js"></script>
+    <script src="/capacitor-adapter.js"></script>
     <script src="/acompanhar.js"></script>
     <script src="/pwa.js"></script>
   </body>

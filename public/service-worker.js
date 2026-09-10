@@ -1,10 +1,12 @@
-const CACHE_NAME = 'zelacity-static-v3';
+const CACHE_NAME = 'zelacity-static-v16';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/acompanhar.html',
+  '/entrar.html',
   '/login.html',
   '/painel.html',
+  '/vereador.html',
   '/manutencao.html',
   '/ordens-servico.html',
   '/relatorios.html',
@@ -13,10 +15,13 @@ const STATIC_ASSETS = [
   '/acompanhar.js',
   '/login.js',
   '/painel.js',
+  '/vereador.js',
   '/manutencao.js',
   '/ordens-servico.js',
   '/relatorios.js',
   '/pwa.js',
+  '/runtime-config.js',
+  '/capacitor-adapter.js',
   '/manifest.json',
   '/assets/app-icon.svg',
   '/assets/zelacity-logo.png'
