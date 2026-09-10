@@ -3,8 +3,8 @@ const { randomBytes, scryptSync, timingSafeEqual } = require('node:crypto');
 const KEY_LENGTH = 64;
 
 function validatePassword(password) {
-  if (typeof password !== 'string' || password.length < 8) {
-    return 'A senha deve ter pelo menos 8 caracteres.';
+  if (typeof password !== 'string' || password.length < 8 || password.length > 256) {
+    return 'A senha deve ter entre 8 e 256 caracteres.';
   }
   return null;
 }
@@ -16,6 +16,7 @@ function hashPassword(password) {
 }
 
 function verifyPassword(password, storedValue) {
+  if (typeof password !== 'string' || password.length > 256) return false;
   const [algorithm, saltValue, hashValue] = String(storedValue).split('$');
   if (algorithm !== 'scrypt' || !saltValue || !hashValue) return false;
 

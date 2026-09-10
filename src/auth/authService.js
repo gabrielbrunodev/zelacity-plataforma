@@ -2,7 +2,7 @@ const { createHash, randomBytes } = require('node:crypto');
 const { hashPassword, validatePassword, verifyPassword } = require('./password');
 
 const ROLES = new Set(['SOLICITANTE', 'VEREADOR', 'MANUTENCAO', 'ADMINISTRADOR']);
-const SERVICE_CATEGORIES = new Set(['ESTRADAS', 'LAMPADAS', 'LUMINARIAS']);
+const SERVICE_CATEGORIES = new Set(['ESTRADAS', 'LAMPADAS', 'LUMINARIAS', 'OUTROS']);
 
 function cleanText(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -12,10 +12,12 @@ function normalizeEmail(value) {
   return cleanText(value).toLowerCase();
 }
 
-function normalizeCategories(value) {
+function normalizeUsername(value) { return cleanText(value).toLowerCase(); }
+
+function normalizeCategories(value, isValidCategory = (category) => SERVICE_CATEGORIES.has(category)) {
   const values = Array.isArray(value) ? value : typeof value === 'string' ? value.split(',') : [];
   const categories = [...new Set(values.map((item) => cleanText(item).toUpperCase()).filter(Boolean))];
-  return categories.every((category) => SERVICE_CATEGORIES.has(category)) ? categories : null;
+  return categories.every(isValidCategory) ? categories : null;
 }
 
 function normalizeActive(value, fallback = true) {
@@ -28,6 +30,7 @@ function toPublicUser(user) {
     id: user.id,
     name: user.name,
     email: user.email,
+    username: user.username || user.email,
     role: user.role,
     teamId: user.team_id,
     teamName: user.team_name || null,
@@ -36,9 +39,10 @@ function toPublicUser(user) {
 }
 
 class AuthService {
-  constructor(database, { sessionHours = 12 } = {}) {
+  constructor(database, { sessionHours = 12 } = {}, categoryService = null) {
     this.database = database;
     this.sessionHours = sessionHours;
+    this.categoryService = categoryService;
   }
 
   hasAdministrator() {
@@ -53,18 +57,22 @@ class AuthService {
     `).get(id) || null;
   }
 
-  validateProfile({ name, email, role, teamId, phone, jobTitle, department, serviceCategories }, { allowLegacyRequester = false } = {}) {
+  validateProfile({ name, username, email, role, teamId, phone, jobTitle, department, serviceCategories }, { allowLegacyRequester = false } = {}) {
     const normalizedName = cleanText(name);
     const normalizedEmail = normalizeEmail(email);
+    const normalizedUsername = normalizeUsername(username);
     const normalizedRole = cleanText(role).toUpperCase();
     const normalizedTeamId = teamId === null || teamId === undefined || teamId === '' ? null : Number(teamId);
     const normalizedPhone = cleanText(phone);
     const normalizedJobTitle = cleanText(jobTitle);
     const normalizedDepartment = cleanText(department);
-    const normalizedCategories = normalizeCategories(serviceCategories);
+    const normalizedCategories = normalizeCategories(serviceCategories, (category) => this.categoryService ? this.categoryService.exists(category) : SERVICE_CATEGORIES.has(category));
 
     if (!normalizedName) return { error: 'Informe o nome do usuário.' };
-    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) return { error: 'Informe um e-mail válido.' };
+    if (normalizedName.length > 160) return { error: 'O nome do usuário pode ter no máximo 160 caracteres.' };
+    if (!normalizedUsername || !/^[a-z0-9._-]{3,60}$/.test(normalizedUsername)) return { error: 'Informe um usuário com 3 a 60 caracteres: letras, números, ponto, hífen ou sublinhado.' };
+    if (normalizedEmail.length > 254 || (normalizedEmail && !/^\S+@\S+\.\S+$/.test(normalizedEmail))) return { error: 'Informe um e-mail válido.' };
+    if (normalizedPhone.length > 30 || normalizedJobTitle.length > 120 || normalizedDepartment.length > 120) return { error: 'Um dos campos de contato, função ou setor excede o tamanho permitido.' };
     if (!ROLES.has(normalizedRole) || (!allowLegacyRequester && normalizedRole === 'SOLICITANTE')) return { error: 'Perfil de usuário interno inválido.' };
     if (normalizedRole === 'MANUTENCAO' && (!Number.isInteger(normalizedTeamId) || normalizedTeamId < 1)) return { error: 'Selecione uma equipe para o funcionário de manutenção.' };
     if (normalizedRole === 'MANUTENCAO' && !normalizedPhone) return { error: 'Informe o telefone do funcionário.' };
@@ -73,11 +81,12 @@ class AuthService {
     if (!normalizedCategories) return { error: 'Selecione categorias de serviço válidas.' };
     if (normalizedRole === 'MANUTENCAO' && !normalizedCategories.length) return { error: 'Selecione pelo menos um tipo de serviço sob responsabilidade do funcionário.' };
     if (normalizedTeamId && !this.database.prepare('SELECT 1 FROM teams WHERE id = ?').get(normalizedTeamId)) return { error: 'Equipe não encontrada.' };
-    return { profile: { name: normalizedName, email: normalizedEmail, role: normalizedRole, teamId: normalizedTeamId, phone: normalizedPhone, jobTitle: normalizedJobTitle, department: normalizedDepartment, serviceCategories: normalizedCategories } };
+    return { profile: { name: normalizedName, username: normalizedUsername, email: normalizedEmail || `${normalizedUsername}@usuario.local`, role: normalizedRole, teamId: normalizedTeamId, phone: normalizedPhone, jobTitle: normalizedJobTitle, department: normalizedDepartment, serviceCategories: normalizedCategories } };
   }
 
-  createUser({ name, email, password, role, teamId = null, employeeNumber = '', phone = '', jobTitle = '', department = '', serviceCategories = [] }) {
-    const profileResult = this.validateProfile({ name, email, role, teamId, phone, jobTitle, department, serviceCategories });
+  createUser({ name, username, email = '', password, role, teamId = null, employeeNumber = '', phone = '', jobTitle = '', department = '', serviceCategories = [] }) {
+    const fallbackUsername = normalizeEmail(email).replace('@', '_');
+    const profileResult = this.validateProfile({ name, username: username || fallbackUsername, email, role, teamId, phone, jobTitle, department, serviceCategories });
     if (profileResult.error) return profileResult;
     const passwordError = validatePassword(password);
     if (passwordError) return { error: passwordError };
@@ -86,10 +95,10 @@ class AuthService {
     try {
       const result = this.database.prepare(`
         INSERT INTO users (
-          name, email, password_hash, role, team_id, employee_number, phone,
+          name, email, username, password_hash, role, team_id, employee_number, phone,
           job_title, department, service_categories, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(profile.name, profile.email, hashPassword(password), profile.role, profile.teamId, cleanText(employeeNumber) || null, profile.phone, profile.jobTitle, profile.department, JSON.stringify(profile.serviceCategories), now, now);
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(profile.name, profile.email, profile.username, hashPassword(password), profile.role, profile.teamId, cleanText(employeeNumber) || null, profile.phone, profile.jobTitle, profile.department, JSON.stringify(profile.serviceCategories), now, now);
       return { user: toPublicUser(this.findUser(Number(result.lastInsertRowid))) };
     } catch (error) {
       if (String(error.message).includes('UNIQUE')) return { error: 'Já existe um usuário com este e-mail.' };
@@ -102,6 +111,7 @@ class AuthService {
     if (!current) return { notFound: true };
     const profileResult = this.validateProfile({
       name: Object.hasOwn(changes, 'name') ? changes.name : current.name,
+      username: Object.hasOwn(changes, 'username') ? changes.username : (current.username || current.email),
       email: Object.hasOwn(changes, 'email') ? changes.email : current.email,
       role: Object.hasOwn(changes, 'role') ? changes.role : current.role,
       teamId: Object.hasOwn(changes, 'teamId') ? changes.teamId : current.team_id,
@@ -126,10 +136,10 @@ class AuthService {
     try {
       this.database.prepare(`
         UPDATE users SET
-          name = ?, email = ?, password_hash = ?, role = ?, team_id = ?, employee_number = ?,
+          name = ?, email = ?, username = ?, password_hash = ?, role = ?, team_id = ?, employee_number = ?,
           phone = ?, job_title = ?, department = ?, service_categories = ?, active = ?, updated_at = ?
         WHERE id = ?
-      `).run(profile.name, profile.email, passwordHash, profile.role, profile.teamId, Object.hasOwn(changes, 'employeeNumber') ? cleanText(changes.employeeNumber) || null : current.employee_number, profile.phone, profile.jobTitle, profile.department, JSON.stringify(profile.serviceCategories), active ? 1 : 0, new Date().toISOString(), current.id);
+      `).run(profile.name, profile.email, profile.username, passwordHash, profile.role, profile.teamId, Object.hasOwn(changes, 'employeeNumber') ? cleanText(changes.employeeNumber) || null : current.employee_number, profile.phone, profile.jobTitle, profile.department, JSON.stringify(profile.serviceCategories), active ? 1 : 0, new Date().toISOString(), current.id);
       return { user: toPublicUser(this.findUser(current.id)) };
     } catch (error) {
       if (String(error.message).includes('UNIQUE')) return { error: 'Já existe um usuário com este e-mail.' };
@@ -137,9 +147,10 @@ class AuthService {
     }
   }
 
-  authenticate(email, password) {
-    const user = this.database.prepare('SELECT * FROM users WHERE email = ? AND active = 1').get(normalizeEmail(email));
-    if (!user || !verifyPassword(password || '', user.password_hash)) return { error: 'E-mail ou senha inválidos.' };
+  authenticate(identifier, password) {
+    const normalizedIdentifier = normalizeUsername(identifier);
+    const user = this.database.prepare('SELECT * FROM users WHERE (username = ? OR email = ?) AND active = 1').get(normalizedIdentifier, normalizeEmail(identifier));
+    if (!user || !verifyPassword(password || '', user.password_hash)) return { error: 'Usuário ou senha inválidos.' };
     const token = randomBytes(32).toString('base64url');
     const tokenHash = createHash('sha256').update(token).digest('hex');
     const now = new Date();
@@ -170,7 +181,7 @@ class AuthService {
 
   listUsers() {
     return this.database.prepare(`
-      SELECT users.id, users.name, users.email, users.role, users.team_id, users.employee_number,
+      SELECT users.id, users.name, users.email, users.username, users.role, users.team_id, users.employee_number,
              users.phone, users.job_title, users.department, users.service_categories, users.active,
              users.created_at, teams.name AS team_name
       FROM users LEFT JOIN teams ON teams.id = users.team_id
