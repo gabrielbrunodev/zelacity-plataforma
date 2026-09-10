@@ -1,9 +1,10 @@
 const zlib = require('node:zlib');
 
-const categoryLabels = { ESTRADAS: 'Manutenção de estradas', LAMPADAS: 'Troca de lâmpadas', LUMINARIAS: 'Instalação de luminárias' };
-const statusLabels = { RECEBIDA: 'Recebida', AGUARDANDO_ANALISE: 'Aguardando análise', EM_ANALISE: 'Em análise', INFORMACOES_ADICIONAIS: 'Informações adicionais solicitadas', APROVADA: 'Aprovada', PROGRAMADA: 'Programada', EM_EXECUCAO: 'Em execução', CONCLUIDA: 'Concluída', INDEFERIDA: 'Indeferida', CANCELADA: 'Cancelada' };
+const categoryLabels = { ESTRADAS: 'Manutenção de estrada', LAMPADAS: 'Iluminação pública', LUMINARIAS: 'Instalação de luminária', OUTROS: 'Outros' };
+const statusLabels = { RECEBIDA: 'Recebida', EM_ANALISE: 'Em análise', ENCAMINHADA: 'Encaminhada', PENDENTE: 'Pendente', EM_ATENDIMENTO: 'Em atendimento', CONCLUIDA: 'Concluída', NAO_REALIZADA: 'Não realizada', CANCELADA: 'Cancelada' };
 const workOrderStatusLabels = { PROGRAMADA: 'Programada', ATRIBUIDA: 'Atribuída', EM_EXECUCAO: 'Em execução', EXECUTADA: 'Executada', PENDENCIA_IDENTIFICADA: 'Pendência identificada', CONFERENCIA: 'Conferência', CONCLUIDA: 'Concluída', CANCELADA: 'Cancelada' };
 const priorityLabels = { BAIXA: 'Baixa', NORMAL: 'Normal', ALTA: 'Alta', URGENTE: 'Urgente' };
+const sourceLabels = { MUNICIPE: 'Munícipe', VEREADOR: 'Vereador', '1DOC': '1Doc', ADMINISTRATIVO: 'Administração' };
 
 function formatDate(value, withTime = false) {
   if (!value) return '—';
@@ -30,7 +31,11 @@ function filterDescription(filters) {
   if (filters.startDate || filters.endDate) parts.push(`Período: ${filters.startDate ? formatDate(`${filters.startDate}T12:00:00Z`) : 'início'} a ${filters.endDate ? formatDate(`${filters.endDate}T12:00:00Z`) : 'hoje'}`);
   if (filters.category) parts.push(`Categoria: ${categoryLabels[filters.category] || filters.category}`);
   if (filters.status) parts.push(`Status: ${statusLabels[filters.status] || filters.status}`);
+  if (filters.source) parts.push(`Origem: ${sourceLabels[filters.source] || filters.source}`);
   if (filters.neighborhood) parts.push(`Bairro: ${filters.neighborhood}`);
+  if (filters.priority) parts.push(`Prioridade: ${priorityLabels[filters.priority] || filters.priority}`);
+  if (filters.teamId) parts.push(`Equipe: #${filters.teamId}`);
+  if (filters.employeeId) parts.push(`Funcionário: #${filters.employeeId}`);
   return parts.length ? parts.join(' · ') : 'Todos os registros';
 }
 
@@ -39,7 +44,7 @@ function reportSheets(report) {
   return [
     {
       name: 'Resumo',
-      rows: [...metadata, [], ['Indicador', 'Quantidade'], ['Total de solicitações', report.summary.total_requests], ['Solicitações concluídas', report.summary.completed_requests], ['Solicitações pendentes', report.summary.pending_requests], ['Tempo médio de atendimento', formatHours(report.summary.average_attendance_hours)]],
+      rows: [...metadata, [], ['Indicador', 'Quantidade'], ['Total de solicitações', report.summary.total_requests], ['Solicitações recebidas', report.summary.received_requests], ['Solicitações concluídas', report.summary.completed_requests], ['Solicitações pendentes', report.summary.pending_requests], ['Solicitações atrasadas', report.summary.overdue_requests], ['Tempo médio de atendimento', formatHours(report.summary.average_attendance_hours)]],
     },
     {
       name: 'Por período',
@@ -54,12 +59,24 @@ function reportSheets(report) {
       rows: [...metadata, [], ['Bairro', 'Total', 'Concluídas', 'Pendentes'], ...report.byNeighborhood.map((item) => [item.neighborhood, item.total, item.completed, item.pending])],
     },
     {
+      name: 'Por origem',
+      rows: [...metadata, [], ['Origem', 'Total', 'Concluídas', 'Pendentes'], ...report.bySource.map((item) => [sourceLabels[item.source] || item.source, item.total, item.completed, item.pending])],
+    },
+    {
+      name: 'Por funcionário',
+      rows: [...metadata, [], ['Funcionário', 'Total', 'Concluídas', 'Pendentes'], ...report.byEmployee.map((item) => [item.employee, item.total, item.completed, item.pending])],
+    },
+    {
       name: 'Por equipe',
+      rows: [...metadata, [], ['Equipe', 'Total', 'Concluídas', 'Pendentes'], ...report.byTeam.map((item) => [item.team, item.total, item.completed, item.pending])],
+    },
+    {
+      name: 'Execução equipes',
       rows: [...metadata, [], ['Equipe', 'Serviços executados'], ...report.servicesByTeam.map((item) => [item.team, item.executed_services])],
     },
     {
       name: 'Solicitações',
-      rows: [...metadata, [], ['Protocolo', 'Data', 'Categoria', 'Local', 'Bairro', 'Status', 'Prioridade', 'OS', 'Status da OS', 'Equipe', 'Concluída em', 'Tempo de atendimento'], ...report.requests.map((item) => [item.protocol, formatDate(item.created_at, true), categoryLabels[item.category] || item.category, item.location, item.neighborhood, statusLabels[item.status] || item.status, priorityLabels[item.priority] || item.priority, item.work_order_number || '—', workOrderStatusLabels[item.work_order_status] || item.work_order_status || '—', item.team || '—', formatDate(item.completed_at, true), formatHours(item.attendance_hours)])],
+      rows: [...metadata, [], ['Protocolo', 'Data', 'Origem', 'Categoria', 'Local', 'Bairro', 'Status', 'Prioridade', 'OS', 'Status da OS', 'Equipe', 'Funcionário', 'Prazo', 'Concluída em', 'Tempo de atendimento'], ...report.requests.map((item) => [item.protocol, formatDate(item.created_at, true), sourceLabels[item.source] || item.source, categoryLabels[item.category] || item.category, item.location, item.neighborhood, statusLabels[item.status] || item.status, priorityLabels[item.priority] || item.priority, item.work_order_number || '—', workOrderStatusLabels[item.work_order_status] || item.work_order_status || '—', item.team || '—', item.employee || '—', formatDate(item.deadline_at), formatDate(item.completed_at, true), formatHours(item.attendance_hours)])],
     },
   ];
 }

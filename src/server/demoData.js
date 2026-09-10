@@ -17,7 +17,7 @@ function seedDemoData(database, authService) {
 
   const insertRequest = database.prepare(`
     INSERT OR IGNORE INTO requests (protocol, requester_name, requester_type, phone, requester_email, category, location, neighborhood, reference, description, specific_details, latitude, longitude, status, priority, created_at, updated_at)
-    VALUES (?, ?, 'MUNICIPE', ?, ?, ?, ?, ?, ?, ?, '{}', ?, ?, 'PROGRAMADA', ?, ?, ?)
+    VALUES (?, ?, 'MUNICIPE', ?, ?, ?, ?, ?, ?, ?, '{}', ?, ?, 'ENCAMINHADA', ?, ?, ?)
   `);
   const requests = [
     ['SOL-DEMO-00001', 'Morador de demonstração', '(00) 90000-0101', 'morador1@teste.local', 'LAMPADAS', 'Rua das Flores, 120', 'Centro', 'Praça principal', 'Lâmpada apagada em poste da via pública.', -23.1571, -46.4060, 'ALTA'],

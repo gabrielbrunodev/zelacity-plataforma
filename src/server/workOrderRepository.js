@@ -28,7 +28,7 @@ class WorkOrderRepository {
   createForRequest(protocol, { teamId, assignedUserId, scheduledAt }, createdByUserId) {
     const request = this.database.prepare('SELECT * FROM requests WHERE protocol = ?').get(protocol);
     if (!request) return { notFound: true };
-    if (request.status !== 'APROVADA') return { error: 'A solicitação precisa estar aprovada para gerar uma ordem de serviço.' };
+    if (request.status !== 'ENCAMINHADA') return { error: 'A solicitação precisa estar encaminhada para gerar uma ordem de serviço.' };
     if (!this.database.prepare('SELECT 1 FROM teams WHERE id = ?').get(teamId)) return { teamNotFound: true };
     const assignee = assignedUserId ? this.findTeamMember(teamId, assignedUserId) : null;
     if (assignedUserId && !assignee) return { assigneeNotFound: true };
@@ -60,10 +60,10 @@ class WorkOrderRepository {
 
   findById(id) {
     return this.database.prepare(`
-      SELECT work_orders.*, teams.name AS team_name, users.name AS assigned_user_name, requests.neighborhood,
+      SELECT work_orders.*, teams.name AS team_name, users.name AS assigned_user_name, requests.status AS request_status, requests.neighborhood,
              requests.reference, requests.latitude AS request_latitude, requests.longitude AS request_longitude,
              requests.created_at AS request_created_at,
-             work_order_executions.observation AS execution_observation, work_order_executions.before_photo_path,
+             work_order_executions.observation AS execution_observation, work_order_executions.materials_used AS execution_materials_used, work_order_executions.before_photo_path,
              work_order_executions.after_photo_path, work_order_executions.latitude AS execution_latitude,
              work_order_executions.longitude AS execution_longitude, work_order_executions.executed_at
       FROM work_orders
@@ -77,10 +77,10 @@ class WorkOrderRepository {
 
   findByNumber(number) {
     return this.database.prepare(`
-      SELECT work_orders.*, teams.name AS team_name, users.name AS assigned_user_name, requests.neighborhood,
+      SELECT work_orders.*, teams.name AS team_name, users.name AS assigned_user_name, requests.status AS request_status, requests.neighborhood,
              requests.reference, requests.latitude AS request_latitude, requests.longitude AS request_longitude,
              requests.created_at AS request_created_at,
-             work_order_executions.observation AS execution_observation, work_order_executions.before_photo_path,
+             work_order_executions.observation AS execution_observation, work_order_executions.materials_used AS execution_materials_used, work_order_executions.before_photo_path,
              work_order_executions.after_photo_path, work_order_executions.latitude AS execution_latitude,
              work_order_executions.longitude AS execution_longitude, work_order_executions.executed_at
       FROM work_orders
@@ -93,12 +93,12 @@ class WorkOrderRepository {
   }
 
   listForUser(user) {
-    const condition = user.role === 'ADMINISTRADOR' ? '' : 'WHERE work_orders.team_id = ?';
+    const condition = user.role === 'ADMINISTRADOR' ? '' : 'WHERE work_orders.team_id = ? AND (work_orders.assigned_user_id IS NULL OR work_orders.assigned_user_id = ?)';
     const statement = this.database.prepare(`
-      SELECT work_orders.*, teams.name AS team_name, users.name AS assigned_user_name, requests.neighborhood,
+      SELECT work_orders.*, teams.name AS team_name, users.name AS assigned_user_name, requests.status AS request_status, requests.neighborhood,
              requests.reference, requests.latitude AS request_latitude, requests.longitude AS request_longitude,
              requests.created_at AS request_created_at,
-             work_order_executions.observation AS execution_observation, work_order_executions.before_photo_path,
+             work_order_executions.observation AS execution_observation, work_order_executions.materials_used AS execution_materials_used, work_order_executions.before_photo_path,
              work_order_executions.after_photo_path, work_order_executions.latitude AS execution_latitude,
              work_order_executions.longitude AS execution_longitude, work_order_executions.executed_at
       FROM work_orders
@@ -109,7 +109,7 @@ class WorkOrderRepository {
       ${condition}
       ORDER BY COALESCE(work_orders.scheduled_at, work_orders.created_at) DESC
     `);
-    return user.role === 'ADMINISTRADOR' ? statement.all() : statement.all(user.teamId);
+    return user.role === 'ADMINISTRADOR' ? statement.all() : statement.all(user.teamId, user.id);
   }
 
   updateManagement(number, changes) {
@@ -123,6 +123,10 @@ class WorkOrderRepository {
     fields.push('updated_at = ?'); values.push(new Date().toISOString(), number);
     this.database.prepare(`UPDATE work_orders SET ${fields.join(', ')} WHERE number = ?`).run(...values);
     return this.findByNumber(number);
+  }
+
+  updateRequestStatus(requestId, status) {
+    this.database.prepare('UPDATE requests SET status = ?, updated_at = ? WHERE id = ?').run(status, new Date().toISOString(), requestId);
   }
 
   addUpdate(workOrderId, userId, type, description) {
@@ -160,7 +164,7 @@ class WorkOrderRepository {
     }
   }
 
-  completeExecution(workOrderId, userId, { observation, beforePhoto, afterPhoto, latitude, longitude, executedAt }) {
+  completeExecution(workOrderId, userId, { observation, materialsUsed, beforePhoto, afterPhoto, latitude, longitude, executedAt }) {
     const workOrder = this.findById(workOrderId);
     if (!workOrder) return { notFound: true };
     const now = new Date().toISOString();
@@ -168,9 +172,9 @@ class WorkOrderRepository {
     try {
       this.database.prepare(`
         INSERT INTO work_order_executions (
-          work_order_id, user_id, observation, before_photo_path, after_photo_path, latitude, longitude, executed_at, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(workOrderId, userId, observation, beforePhoto?.storagePath || null, afterPhoto?.storagePath || null, latitude, longitude, executedAt, now);
+          work_order_id, user_id, observation, materials_used, before_photo_path, after_photo_path, latitude, longitude, executed_at, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(workOrderId, userId, observation, materialsUsed, beforePhoto?.storagePath || null, afterPhoto?.storagePath || null, latitude, longitude, executedAt, now);
       const insertImage = this.database.prepare(`
         INSERT INTO request_images (
           request_id, work_order_id, image_type, storage_path, original_name,
@@ -180,7 +184,7 @@ class WorkOrderRepository {
       if (beforePhoto) insertImage.run(workOrder.request_id, workOrderId, 'ANTES_EXECUCAO', beforePhoto.storagePath, beforePhoto.originalName, beforePhoto.mimeType, beforePhoto.size, userId, now);
       if (afterPhoto) insertImage.run(workOrder.request_id, workOrderId, 'DEPOIS_EXECUCAO', afterPhoto.storagePath, afterPhoto.originalName, afterPhoto.mimeType, afterPhoto.size, userId, now);
       this.database.prepare('INSERT INTO work_order_updates (work_order_id, user_id, type, description, created_at) VALUES (?, ?, ?, ?, ?)').run(workOrderId, userId, 'EXECUCAO', observation, now);
-      this.database.prepare("UPDATE work_orders SET status = 'EXECUTADA', updated_at = ? WHERE id = ?").run(now, workOrderId);
+      this.database.prepare("UPDATE work_orders SET status = 'CONCLUIDA', updated_at = ? WHERE id = ?").run(now, workOrderId);
       this.database.exec('COMMIT');
       return { workOrder: this.findById(workOrderId) };
     } catch (error) {

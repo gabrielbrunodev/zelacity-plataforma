@@ -17,13 +17,31 @@ const MIME_TYPES = {
   '.webp': 'image/webp',
 };
 
+const PROTECTED_PAGES = new Map([
+  ['/painel.html', ['ADMINISTRADOR']],
+  ['/ordens-servico.html', ['ADMINISTRADOR', 'MANUTENCAO']],
+  ['/relatorios.html', ['ADMINISTRADOR']],
+  ['/manutencao.html', ['MANUTENCAO']],
+  ['/vereador.html', ['VEREADOR']],
+]);
+
+const SECURITY_HEADERS = {
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Content-Security-Policy': "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'; script-src 'self' https://maps.googleapis.com https://maps.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://*.google.com https://*.gstatic.com; connect-src 'self' https://maps.googleapis.com; frame-src https://www.google.com https://*.google.com;",
+  'Permissions-Policy': 'camera=(self), geolocation=(self), microphone=(), payment=(), usb=()',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'SAMEORIGIN',
+};
+
 function sendJson(response, statusCode, body, headers = {}) {
-  response.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8', ...headers });
+  response.writeHead(statusCode, { ...SECURITY_HEADERS, 'Content-Type': 'application/json; charset=utf-8', ...headers });
   response.end(JSON.stringify(body));
 }
 
 function sendDownload(response, content, filename, contentType) {
   response.writeHead(200, {
+    ...SECURITY_HEADERS,
     'Content-Type': contentType,
     'Content-Disposition': `attachment; filename="${filename}"`,
     'Cache-Control': 'private, no-store',
@@ -111,13 +129,19 @@ function parseCookies(request) {
   }).filter(([name]) => name));
 }
 
-function sessionCookie(token) {
+function sessionCookie(token, request) {
   const maxAge = config.sessionHours * 60 * 60;
-  return `munimanutencao_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAge}`;
+  const isMobileOrigin = config.mobileAllowedOrigins.has(request.headers.origin);
+  const sameSite = isMobileOrigin ? 'None' : 'Strict';
+  const secure = config.secureCookies || isMobileOrigin;
+  return `munimanutencao_session=${encodeURIComponent(token)}; HttpOnly; SameSite=${sameSite}; Path=/; Max-Age=${maxAge}${secure ? '; Secure' : ''}`;
 }
 
-function expiredSessionCookie() {
-  return 'munimanutencao_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0';
+function expiredSessionCookie(request) {
+  const isMobileOrigin = config.mobileAllowedOrigins.has(request.headers.origin);
+  const sameSite = isMobileOrigin ? 'None' : 'Strict';
+  const secure = config.secureCookies || isMobileOrigin;
+  return `munimanutencao_session=; HttpOnly; SameSite=${sameSite}; Path=/; Max-Age=0${secure ? '; Secure' : ''}`;
 }
 
 function getAuthenticatedUser(request, authService) {
@@ -140,7 +164,24 @@ function requireRoles(request, response, authService, roles) {
 function hasAllowedOrigin(request) {
   const origin = request.headers.origin;
   const host = request.headers.host;
-  return !origin || origin === `http://${host}` || origin === `https://${host}`;
+  return !origin || origin === `http://${host}` || origin === `https://${host}` || config.mobileAllowedOrigins.has(origin);
+}
+
+function corsHeaders(request) {
+  const origin = request.headers.origin;
+  if (!config.mobileAllowedOrigins.has(origin)) return {};
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
+    Vary: 'Origin',
+  };
+}
+
+function isPathInside(baseDirectory, targetPath) {
+  const relativePath = path.relative(baseDirectory, targetPath);
+  return relativePath === '' || (!relativePath.startsWith(`..${path.sep}`) && relativePath !== '..' && !path.isAbsolute(relativePath));
 }
 
 function serveStaticFile(request, response) {
@@ -148,7 +189,7 @@ function serveStaticFile(request, response) {
   const safePath = path.normalize(requestPath).replace(/^([.][.][\\/])+/, '');
   const filePath = path.join(config.publicDirectory, safePath);
 
-  if (!filePath.startsWith(config.publicDirectory)) {
+  if (!isPathInside(config.publicDirectory, filePath)) {
     sendJson(response, 403, { error: 'Acesso não permitido.' });
     return;
   }
@@ -163,7 +204,7 @@ function serveStaticFile(request, response) {
       return;
     }
     const extension = path.extname(filePath).toLowerCase();
-    response.writeHead(200, { 'Content-Type': MIME_TYPES[extension] || 'application/octet-stream' });
+    response.writeHead(200, { ...SECURITY_HEADERS, 'Content-Type': MIME_TYPES[extension] || 'application/octet-stream' });
     response.end(content);
   });
 }
@@ -171,13 +212,13 @@ function serveStaticFile(request, response) {
 function canViewImage(user, image) {
   if (user.role === 'ADMINISTRADOR') return true;
   if (['SOLICITANTE', 'VEREADOR'].includes(user.role)) return image.requester_user_id === user.id;
-  return user.role === 'MANUTENCAO' && image.team_id === user.teamId;
+  return user.role === 'MANUTENCAO' && image.team_id === user.teamId && (!image.assigned_user_id || image.assigned_user_id === user.id);
 }
 
 function serveStoredImage(response, image) {
   const filename = path.basename(image.storage_path);
   const filePath = path.join(config.uploadDirectory, filename);
-  if (!filePath.startsWith(config.uploadDirectory)) {
+  if (!isPathInside(config.uploadDirectory, filePath)) {
     sendJson(response, 403, { error: 'Acesso não permitido.' });
     return;
   }
@@ -187,6 +228,7 @@ function serveStoredImage(response, image) {
       return;
     }
     response.writeHead(200, {
+      ...SECURITY_HEADERS,
       'Content-Type': image.mime_type,
       'Cache-Control': 'private, no-store',
       'X-Content-Type-Options': 'nosniff',
@@ -195,10 +237,18 @@ function serveStoredImage(response, image) {
   });
 }
 
-function createApp({ requestService, workOrderService, reportService, authService, imageRepository, auditRepository } = {}) {
-  if (!requestService || !workOrderService || !reportService || !authService || !imageRepository || !auditRepository) throw new Error('Os serviços da aplicação são obrigatórios.');
+function createApp({ requestService, workOrderService, reportService, authService, imageRepository, auditRepository, categoryService, internalNotificationService } = {}) {
+  if (!requestService || !workOrderService || !reportService || !authService || !imageRepository || !auditRepository || !categoryService || !internalNotificationService) throw new Error('Os serviços da aplicação são obrigatórios.');
 
   return async (request, response) => {
+    const allowedCorsHeaders = corsHeaders(request);
+    Object.entries(allowedCorsHeaders).forEach(([name, value]) => response.setHeader(name, value));
+    if (request.method === 'OPTIONS') {
+      if (!Object.keys(allowedCorsHeaders).length) { sendJson(response, 403, { error: 'Origem não permitida.' }); return; }
+      response.writeHead(204, SECURITY_HEADERS);
+      response.end();
+      return;
+    }
     const requestUrl = new URL(request.url, 'http://localhost');
     const { pathname } = requestUrl;
 
@@ -217,13 +267,18 @@ function createApp({ requestService, workOrderService, reportService, authServic
       return;
     }
 
+    if (request.method === 'GET' && pathname === '/api/categories') {
+      sendJson(response, 200, { categories: categoryService.listPublic() });
+      return;
+    }
+
     if (request.method === 'POST' && pathname === '/api/auth/login') {
       if (!hasAllowedOrigin(request)) { sendJson(response, 403, { error: 'Origem não permitida.' }); return; }
       try {
-        const { email, password } = await readJsonBody(request);
-        const result = authService.authenticate(email, password);
+        const { username, email, password } = await readJsonBody(request);
+        const result = authService.authenticate(username || email, password);
         if (result.error) { sendJson(response, 401, { error: result.error }); return; }
-        sendJson(response, 200, { user: result.user }, { 'Set-Cookie': sessionCookie(result.token) });
+        sendJson(response, 200, { user: result.user }, { 'Set-Cookie': sessionCookie(result.token, request) });
       } catch {
         sendJson(response, 400, { error: 'Não foi possível iniciar a sessão.' });
       }
@@ -233,7 +288,7 @@ function createApp({ requestService, workOrderService, reportService, authServic
     if (request.method === 'POST' && pathname === '/api/auth/logout') {
       if (!hasAllowedOrigin(request)) { sendJson(response, 403, { error: 'Origem não permitida.' }); return; }
       authService.logout(parseCookies(request).munimanutencao_session);
-      sendJson(response, 200, { message: 'Sessão encerrada.' }, { 'Set-Cookie': expiredSessionCookie() });
+      sendJson(response, 200, { message: 'Sessão encerrada.' }, { 'Set-Cookie': expiredSessionCookie(request) });
       return;
     }
 
@@ -308,6 +363,66 @@ function createApp({ requestService, workOrderService, reportService, authServic
       return;
     }
 
+    if (request.method === 'GET' && pathname === '/api/notifications') {
+      const user = requireRoles(request, response, authService, ['MANUTENCAO']);
+      if (!user) return;
+      sendJson(response, 200, internalNotificationService.listForUser(user.id));
+      return;
+    }
+
+    if (request.method === 'POST' && pathname === '/api/notifications/read-all') {
+      if (!hasAllowedOrigin(request)) { sendJson(response, 403, { error: 'Origem não permitida.' }); return; }
+      const user = requireRoles(request, response, authService, ['MANUTENCAO']);
+      if (!user) return;
+      internalNotificationService.markAllRead(user.id);
+      sendJson(response, 200, { success: true });
+      return;
+    }
+
+    const notificationMatch = pathname.match(/^\/api\/notifications\/(\d+)\/read$/);
+    if (request.method === 'PATCH' && notificationMatch) {
+      if (!hasAllowedOrigin(request)) { sendJson(response, 403, { error: 'Origem não permitida.' }); return; }
+      const user = requireRoles(request, response, authService, ['MANUTENCAO']);
+      if (!user) return;
+      if (!internalNotificationService.markRead(notificationMatch[1], user.id)) { sendJson(response, 404, { error: 'Notificação não encontrada.' }); return; }
+      sendJson(response, 200, { success: true });
+      return;
+    }
+
+    if (request.method === 'GET' && pathname === '/api/admin/categories') {
+      if (!requireRoles(request, response, authService, ['ADMINISTRADOR'])) return;
+      sendJson(response, 200, { categories: categoryService.listManagement() });
+      return;
+    }
+
+    if (request.method === 'POST' && pathname === '/api/admin/categories') {
+      if (!hasAllowedOrigin(request)) { sendJson(response, 403, { error: 'Origem não permitida.' }); return; }
+      if (!requireRoles(request, response, authService, ['ADMINISTRADOR'])) return;
+      try {
+        const result = categoryService.create(await readJsonBody(request));
+        if (result.error) { sendJson(response, 400, { error: result.error }); return; }
+        sendJson(response, 201, result);
+      } catch {
+        sendJson(response, 500, { error: 'Não foi possível criar a categoria.' });
+      }
+      return;
+    }
+
+    const categoryMatch = pathname.match(/^\/api\/admin\/categories\/([A-Z0-9_]+)$/);
+    if (request.method === 'PATCH' && categoryMatch) {
+      if (!hasAllowedOrigin(request)) { sendJson(response, 403, { error: 'Origem não permitida.' }); return; }
+      if (!requireRoles(request, response, authService, ['ADMINISTRADOR'])) return;
+      try {
+        const result = categoryService.update(categoryMatch[1], await readJsonBody(request));
+        if (result.error) { sendJson(response, 400, { error: result.error }); return; }
+        if (result.notFound) { sendJson(response, 404, { error: 'Categoria não encontrada.' }); return; }
+        sendJson(response, 200, result);
+      } catch {
+        sendJson(response, 500, { error: 'Não foi possível atualizar a categoria.' });
+      }
+      return;
+    }
+
     if (request.method === 'GET' && pathname === '/api/requests') {
       if (!requireRoles(request, response, authService, ['ADMINISTRADOR'])) return;
       sendJson(response, 200, { requests: requestService.listAll() });
@@ -331,6 +446,9 @@ function createApp({ requestService, workOrderService, reportService, authServic
         endDate: requestUrl.searchParams.get('endDate') || '',
         neighborhood: requestUrl.searchParams.get('neighborhood') || '',
         protocol: requestUrl.searchParams.get('protocol') || '',
+        source: requestUrl.searchParams.get('source') || '',
+        teamId: requestUrl.searchParams.get('teamId') || '',
+        employeeId: requestUrl.searchParams.get('employeeId') || '',
       };
       sendJson(response, 200, requestService.getAdministratorDashboard(filters));
       return;
@@ -344,7 +462,11 @@ function createApp({ requestService, workOrderService, reportService, authServic
           endDate: requestUrl.searchParams.get('endDate') || '',
           category: requestUrl.searchParams.get('category') || '',
           status: requestUrl.searchParams.get('status') || '',
+          source: requestUrl.searchParams.get('source') || '',
           neighborhood: requestUrl.searchParams.get('neighborhood') || '',
+          priority: requestUrl.searchParams.get('priority') || '',
+          teamId: requestUrl.searchParams.get('teamId') || '',
+          employeeId: requestUrl.searchParams.get('employeeId') || '',
         });
         if (result.error) { sendJson(response, 400, { error: result.error }); return; }
         if (pathname === '/api/admin/reports') { sendJson(response, 200, result); return; }
@@ -373,10 +495,9 @@ function createApp({ requestService, workOrderService, reportService, authServic
 
     const publicProtocolMatch = pathname.match(/^\/api\/public\/requests\/([^/]+)$/);
     if (request.method === 'GET' && publicProtocolMatch) {
-      const result = requestService.findPublicByProtocol(decodeURIComponent(publicProtocolMatch[1]), requestUrl.searchParams.get('phoneLastFour') || '');
+      const result = requestService.findPublicByProtocol(decodeURIComponent(publicProtocolMatch[1]));
       if (result.error) { sendJson(response, 400, { error: result.error }); return; }
-      if (result.notFound) { sendJson(response, 404, { error: 'Solicitação não encontrada.' }); return; }
-      if (result.forbidden) { sendJson(response, 403, { error: 'Não foi possível confirmar os dados de consulta.' }); return; }
+      if (result.notFound) { sendJson(response, 404, { error: 'Protocolo não encontrado. Verifique o número informado.' }); return; }
       sendJson(response, 200, { request: result.request });
       return;
     }
@@ -405,6 +526,29 @@ function createApp({ requestService, workOrderService, reportService, authServic
         sendJson(response, 200, { request: result.request });
       } catch {
         sendJson(response, 500, { error: 'Não foi possível atualizar a solicitação.' });
+      }
+      return;
+    }
+
+    if (request.method === 'POST' && pathname === '/api/admin/requests') {
+      if (!hasAllowedOrigin(request)) { sendJson(response, 403, { error: 'Origem não permitida.' }); return; }
+      const user = requireRoles(request, response, authService, ['ADMINISTRADOR']);
+      if (!user) return;
+      try {
+        let payload;
+        let requestPhoto;
+        if ((request.headers['content-type'] || '').startsWith('multipart/form-data')) {
+          const { fields, files } = await readMultipartBody(request);
+          payload = fields;
+          requestPhoto = files.requestPhoto;
+        } else {
+          payload = await readJsonBody(request);
+        }
+        const result = requestService.createManual(payload, user, requestPhoto);
+        if (result.error) { sendJson(response, 400, { error: result.error }); return; }
+        sendJson(response, 201, { message: 'Solicitação manual registrada com sucesso.', protocol: result.request.protocol, request: result.request });
+      } catch (error) {
+        sendJson(response, 400, { error: error.message || 'Não foi possível registrar a solicitação manual.' });
       }
       return;
     }
@@ -520,6 +664,40 @@ function createApp({ requestService, workOrderService, reportService, authServic
       return;
     }
 
+    const workOrderNotificationMatch = pathname.match(/^\/api\/work-orders\/([^/]+)\/notifications$/);
+    if (request.method === 'POST' && workOrderNotificationMatch) {
+      if (!hasAllowedOrigin(request)) { sendJson(response, 403, { error: 'Origem não permitida.' }); return; }
+      const user = requireRoles(request, response, authService, ['ADMINISTRADOR']);
+      if (!user) return;
+      try {
+        const result = workOrderService.sendAdministrativeMessage(decodeURIComponent(workOrderNotificationMatch[1]), user.id, (await readJsonBody(request)).message);
+        if (result.error) { sendJson(response, 400, { error: result.error }); return; }
+        if (result.notFound) { sendJson(response, 404, { error: 'Ordem de serviço não encontrada.' }); return; }
+        sendJson(response, 201, { success: true });
+      } catch {
+        sendJson(response, 500, { error: 'Não foi possível enviar a mensagem administrativa.' });
+      }
+      return;
+    }
+
+    const workOrderPhotoMatch = pathname.match(/^\/api\/work-orders\/(\d+)\/photos$/);
+    if (request.method === 'POST' && workOrderPhotoMatch) {
+      if (!hasAllowedOrigin(request)) { sendJson(response, 403, { error: 'Origem não permitida.' }); return; }
+      const user = requireRoles(request, response, authService, ['MANUTENCAO']);
+      if (!user) return;
+      try {
+        const { files } = await readMultipartBody(request);
+        const result = workOrderService.addPhoto(workOrderPhotoMatch[1], user, files.photo);
+        if (result.error) { sendJson(response, 400, { error: result.error }); return; }
+        if (result.forbidden) { sendJson(response, 403, { error: 'A ordem de serviço não pertence à sua equipe.' }); return; }
+        if (result.notFound) { sendJson(response, 404, { error: 'Ordem de serviço não encontrada.' }); return; }
+        sendJson(response, 201, { workOrder: result.workOrder, image: result.image });
+      } catch (error) {
+        sendJson(response, 400, { error: error.message || 'Não foi possível adicionar a foto.' });
+      }
+      return;
+    }
+
     const workOrderCompleteMatch = pathname.match(/^\/api\/work-orders\/(\d+)\/complete$/);
     if (request.method === 'POST' && workOrderCompleteMatch) {
       if (!hasAllowedOrigin(request)) { sendJson(response, 403, { error: 'Origem não permitida.' }); return; }
@@ -529,7 +707,7 @@ function createApp({ requestService, workOrderService, reportService, authServic
         const { fields, files } = await readMultipartBody(request);
         const result = workOrderService.complete(workOrderCompleteMatch[1], user, {
           observation: fields.observation,
-          executedAt: fields.executedAt,
+          materialsUsed: fields.materialsUsed,
           beforePhoto: files.beforePhoto,
           afterPhoto: files.afterPhoto,
           latitude: fields.latitude,
@@ -563,6 +741,21 @@ function createApp({ requestService, workOrderService, reportService, authServic
     }
 
     if (request.method === 'GET') {
+      const allowedRoles = PROTECTED_PAGES.get(pathname);
+      if (allowedRoles) {
+        const user = getAuthenticatedUser(request, authService);
+        if (!user) {
+          response.writeHead(302, { ...SECURITY_HEADERS, Location: '/login.html' });
+          response.end();
+          return;
+        }
+        if (!allowedRoles.includes(user.role)) {
+          const destination = user.role === 'VEREADOR' ? '/vereador.html' : user.role === 'MANUTENCAO' ? '/manutencao.html' : '/';
+          response.writeHead(302, { ...SECURITY_HEADERS, Location: destination });
+          response.end();
+          return;
+        }
+      }
       serveStaticFile(request, response);
       return;
     }
