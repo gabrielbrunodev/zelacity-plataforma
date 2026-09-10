@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { DatabaseSync } = require('node:sqlite');
+const { createPostgresDatabase } = require('./postgresDatabase');
 
 function initializeSchema(database) {
   database.exec(`
@@ -125,6 +126,7 @@ function initializeSchema(database) {
       original_name TEXT NOT NULL,
       mime_type TEXT NOT NULL CHECK (mime_type IN ('image/jpeg', 'image/png', 'image/webp')),
       file_size INTEGER NOT NULL CHECK (file_size > 0 AND file_size <= 5242880),
+      content_data BLOB,
       uploaded_by_user_id INTEGER NOT NULL REFERENCES users(id),
       created_at TEXT NOT NULL
     );
@@ -233,6 +235,8 @@ function initializeSchema(database) {
   if (!userColumns.includes('job_title')) database.exec("ALTER TABLE users ADD COLUMN job_title TEXT NOT NULL DEFAULT ''");
   if (!userColumns.includes('department')) database.exec("ALTER TABLE users ADD COLUMN department TEXT NOT NULL DEFAULT ''");
   if (!userColumns.includes('service_categories')) database.exec("ALTER TABLE users ADD COLUMN service_categories TEXT NOT NULL DEFAULT '[]'");
+  const imageColumns = database.prepare('PRAGMA table_info(request_images)').all().map((column) => column.name);
+  if (!imageColumns.includes('content_data')) database.exec('ALTER TABLE request_images ADD COLUMN content_data BLOB');
   const categoryColumns = database.prepare('PRAGMA table_info(service_categories)').all().map((column) => column.name);
   if (!categoryColumns.includes('default_deadline_days')) database.exec('ALTER TABLE service_categories ADD COLUMN default_deadline_days INTEGER');
   migrateUserRoles(database);
@@ -535,6 +539,7 @@ function migrateWorkOrderStatuses(database) {
 }
 
 function createDatabase(databasePath) {
+  if (process.env.DATABASE_URL) return createPostgresDatabase(process.env.DATABASE_URL);
   fs.mkdirSync(path.dirname(databasePath), { recursive: true });
   const database = new DatabaseSync(databasePath);
   initializeSchema(database);
