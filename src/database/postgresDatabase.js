@@ -30,8 +30,23 @@ const workerSource = String.raw`
   async function main() {
     Atomics.store(state, 0, 1);
     Atomics.notify(state, 0);
-    parentPort.on('message', async ({ buffer, sql, params }) => {
+    function rawQuery(statement) {
+      const strings = [statement];
+      strings.raw = strings;
+      return sqlClient(strings);
+    }
+
+    parentPort.on('message', async ({ buffer, sql, params, batch }) => {
       try {
+        if (Array.isArray(batch)) {
+          const results = await sqlClient.transaction(batch.map((statement) => rawQuery(statement)));
+          writeResponse(buffer, {
+            ok: true,
+            rows: results.map((result) => Array.isArray(result) ? result : (result.rows || [])),
+            rowCount: results.length,
+          });
+          return;
+        }
         if (/^(BEGIN|COMMIT|ROLLBACK)\b/i.test(sql)) {
           writeResponse(buffer, { ok: true, rows: [], rowCount: 0 });
           return;
@@ -155,7 +170,24 @@ class PostgresSyncDatabase {
       else current += char;
     }
     if (current.trim()) statements.push(current.trim());
-    statements.forEach((statement) => this.query(toPostgresSql(statement), []));
+    if (!statements.length) return;
+    const postgresStatements = statements
+      .map((statement) => toPostgresSql(statement))
+      .filter(Boolean);
+    this.batch(postgresStatements);
+  }
+
+  batch(statements) {
+    const buffer = new SharedArrayBuffer(12 + RESPONSE_BYTES);
+    const responseState = new Int32Array(buffer, 0, 3);
+    this.worker.postMessage({ buffer, batch: statements });
+    const waitResult = Atomics.wait(responseState, 0, 0, 30000);
+    if (waitResult === 'timed-out' || Atomics.load(responseState, 0) !== 1) throw new Error('O banco de dados não respondeu a tempo.');
+    const length = Atomics.load(responseState, 1);
+    const payload = JSON.parse(Buffer.from(new Uint8Array(buffer, 12, length)).toString('utf8'));
+    if (!payload.ok) throw new Error(payload.error || 'Erro de banco de dados.');
+    payload.rows = decode(payload.rows);
+    return payload;
   }
 
   close() {
