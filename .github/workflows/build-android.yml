@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       api_base_url:
-        description: URL HTTPS da aplicação/API hospedada (ex.: https://sistema.exemplo.gov.br)
+        description: "URL HTTPS da aplicação ou API hospedada (ex.: https://sistema.exemplo.gov.br)"
         required: true
         type: string
 
