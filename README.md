@@ -1,6 +1,6 @@
 # Zelacity Plataforma
 
-Sistema municipal para registrar solicitações, analisar demandas e executar ordens de serviço. Roda localmente no Windows com Node.js e SQLite.
+Sistema municipal para registrar solicitações, analisar demandas e executar ordens de serviço. Roda localmente no Windows com Node.js e SQLite e, na Vercel, utiliza Neon Postgres quando `DATABASE_URL` está configurada.
 
 ## Requisitos
 
@@ -40,6 +40,17 @@ npm run bootstrap-admin -- admin@prefeitura.gov.br "SenhaForteCom8Caracteres" "N
 ```
 
 Depois, entre em [http://localhost:3000/login.html](http://localhost:3000/login.html). Não há senha padrão gravada no projeto.
+
+## Uso oficial na Vercel
+
+O projeto está conectado ao banco Neon `zelacity-producao` pelo Storage da Vercel. As variáveis `DATABASE_URL` e demais credenciais são injetadas automaticamente pela integração e não devem ser copiadas para o repositório.
+
+- Aplicação: [https://zelacity-plataforma.vercel.app](https://zelacity-plataforma.vercel.app)
+- Saúde da API: [https://zelacity-plataforma.vercel.app/api/health](https://zelacity-plataforma.vercel.app/api/health)
+- O retorno da saúde deve informar `database: "neon"`.
+- Os dados de solicitações, usuários, equipes, histórico e fotos ficam no Neon. O navegador e o APK acessam a mesma API.
+- Para criar o primeiro administrador em produção, use o script de bootstrap apontando para o mesmo banco em um ambiente seguro ou crie o usuário pelo procedimento administrativo definido pela Prefeitura. Não reutilize a senha de demonstração.
+- Antes de receber dados reais, altere as credenciais de demonstração, mantenha `DEMO_MODE` desativado quando a conta administrativa real estiver criada e confirme as políticas de backup e retenção do Neon.
 
 ## Fluxo de uso
 
@@ -85,7 +96,7 @@ Depois, entre em [http://localhost:3000/login.html](http://localhost:3000/login.
 - Imagens aceitam apenas JPG, PNG ou WebP, com no máximo 5 MB, e passam por validação de tipo e assinatura.
 - A auditoria é imutável e classifica criação, alteração de status, atribuição, redistribuição, prioridade, fotos, observações, protocolo 1Doc, início, impossibilidade, conclusão e reabertura. O histórico administrativo mostra todos os detalhes; a consulta pública exibe somente eventos com atualização pública.
 - Em execução local, o SQLite fica em `data/munimanutencao.sqlite`; reiniciar o servidor não apaga os dados.
-- Na Vercel, o ambiente de funções não possui disco permanente. Sem um banco externo configurado, o protótipo usa `/tmp`, que pode ser recriado quando a função é reiniciada. Antes de usar dados reais em produção, configure um banco persistente (por exemplo, Vercel Postgres/Neon, Supabase ou Turso) e migre o adaptador de persistência; não use o SQLite temporário da Vercel como banco oficial.
+- Na Vercel, o banco oficial desta configuração é o Neon Postgres conectado pelo Storage. O adaptador cria as tabelas e índices necessários na primeira inicialização e mantém a compatibilidade com o SQLite local. Não use o SQLite temporário de `/tmp` como banco oficial.
 
 Por padrão, a foto posterior é recomendada, mas não obrigatória. Para exigi-la ao concluir um serviço, configure antes de iniciar o servidor:
 
