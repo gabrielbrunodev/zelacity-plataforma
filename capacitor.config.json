@@ -8,6 +8,17 @@
     "webContentsDebuggingEnabled": false
   },
   "plugins": {
+    "SystemBars": {
+      "insetsHandling": "css",
+      "style": "DARK",
+      "hidden": false,
+      "animation": "NONE"
+    },
+    "StatusBar": {
+      "overlaysWebView": false,
+      "style": "DARK",
+      "backgroundColor": "#062b40"
+    },
     "SplashScreen": {
       "launchAutoHide": true,
       "launchShowDuration": 600,
