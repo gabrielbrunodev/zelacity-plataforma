@@ -2,6 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { config } = require('./config');
 const { createCsv, createXlsx } = require('./reportExporter');
+const { DEMO_PASSWORD } = require('./demoData');
 
 const MIME_TYPES = {
   '.css': 'text/css; charset=utf-8',
@@ -268,6 +269,17 @@ function createApp({ requestService, workOrderService, reportService, authServic
       sendJson(response, 200, {
         enabled: Boolean(config.googleMapsApiKey),
         apiKey: config.googleMapsApiKey || null,
+      });
+      return;
+    }
+
+    if (request.method === 'GET' && pathname === '/api/config/demo') {
+      const user = requireRoles(request, response, authService, ['ADMINISTRADOR']);
+      if (!user) return;
+      sendJson(response, 200, {
+        enabled: config.demoMode,
+        username: config.demoMode ? 'admin@zelacity.teste' : null,
+        password: config.demoMode ? DEMO_PASSWORD : null,
       });
       return;
     }
