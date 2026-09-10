@@ -218,7 +218,10 @@ function serveStaticFile(request, response) {
 function canViewImage(user, image) {
   if (user.role === 'ADMINISTRADOR') return true;
   if (['SOLICITANTE', 'VEREADOR'].includes(user.role)) return image.requester_user_id === user.id;
-  return user.role === 'MANUTENCAO' && image.team_id === user.teamId && (!image.assigned_user_id || image.assigned_user_id === user.id);
+  if (user.role !== 'MANUTENCAO') return false;
+  const categories = Array.isArray(user.serviceCategories) ? user.serviceCategories : [];
+  if (image.request_category && categories.includes(image.request_category)) return true;
+  return image.team_id === user.teamId && (!image.assigned_user_id || image.assigned_user_id === user.id);
 }
 
 function serveStoredImage(response, image) {

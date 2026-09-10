@@ -15,6 +15,14 @@ function toIsoDate(value) {
 
 function canHandleWorkOrder(user, workOrder) {
   if (user.role !== 'MANUTENCAO') return true;
+  const categories = Array.isArray(user.serviceCategories) ? user.serviceCategories : [];
+  const categoryAuthorized = !categories.length || categories.includes(workOrder.category);
+  if (!categoryAuthorized) return false;
+  // A categoria define o grupo operacional autorizado: todos os funcionários
+  // habilitados para ela podem acompanhar e executar a demanda. O vínculo de
+  // equipe continua sendo usado como fallback para cadastros legados sem
+  // categorias configuradas.
+  if (categories.length && categories.includes(workOrder.category)) return true;
   return workOrder.team_id === user.teamId && (!workOrder.assigned_user_id || workOrder.assigned_user_id === user.id);
 }
 

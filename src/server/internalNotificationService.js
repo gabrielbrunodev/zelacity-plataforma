@@ -17,8 +17,16 @@ class InternalNotificationService {
   }
 
   recipientsForWorkOrder(workOrder) {
-    if (workOrder.assigned_user_id) return [Number(workOrder.assigned_user_id)];
-    return this.database.prepare("SELECT id FROM users WHERE team_id = ? AND role = 'MANUTENCAO' AND active = 1").all(workOrder.team_id).map((user) => Number(user.id));
+    const members = this.database.prepare("SELECT id, service_categories FROM users WHERE role = 'MANUTENCAO' AND active = 1 AND (team_id = ? OR service_categories LIKE ?)").all(workOrder.team_id, `%\"${workOrder.category}\"%`);
+    const eligible = members.filter((member) => {
+      try {
+        const categories = JSON.parse(member.service_categories || '[]');
+        return !categories.length || categories.includes(workOrder.category);
+      } catch {
+        return true;
+      }
+    }).map((member) => Number(member.id));
+    return eligible.length ? eligible : (workOrder.assigned_user_id ? [Number(workOrder.assigned_user_id)] : []);
   }
 
   create({ userIds, requestId = null, workOrderId = null, type, title, message, createdByUserId = null }) {

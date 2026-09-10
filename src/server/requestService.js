@@ -3,7 +3,7 @@ const { parseCoordinates } = require('./coordinates');
 const SERVICE_TYPES = new Set(['ESTRADAS', 'LAMPADAS', 'LUMINARIAS', 'OUTROS']);
 const REQUEST_STATUSES = new Set(['RECEBIDA', 'EM_ANALISE', 'ENCAMINHADA', 'PENDENTE', 'EM_ATENDIMENTO', 'CONCLUIDA', 'NAO_REALIZADA', 'CANCELADA']);
 const PRIORITIES = new Set(['BAIXA', 'NORMAL', 'ALTA', 'URGENTE']);
-const PROTOCOL_PATTERN = /^(?:\d{4}-\d{5,}|SOL-\d{4}-\d{5,})$/;
+const PROTOCOL_PATTERN = /^(?:\d{4}-\d{5,}|SOL-(?:\d{4}-\d{5,}|DEMO-\d{5,}))$/;
 const REQUEST_SOURCES = new Set(['MUNICIPE', 'VEREADOR', '1DOC', 'ADMINISTRATIVO']);
 const FIELD_LIMITS = { name: 160, phone: 30, email: 254, location: 240, neighborhood: 120, reference: 300, description: 4000 };
 const CLOSED_STATUSES = new Set(['CONCLUIDA', 'NAO_REALIZADA', 'CANCELADA']);
@@ -23,6 +23,14 @@ const publicStatus = {
 
 function cleanText(value) {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function normalizeProtocol(value) {
+  return cleanText(value)
+    .toUpperCase()
+    .replace(/^SOLICITA(?:ÇÃO|CAO)\s*#?\s*/, '')
+    .replace(/^#\s*/, '')
+    .replace(/\s+/g, '');
 }
 
 function phoneDigits(value) {
@@ -165,7 +173,7 @@ class RequestService {
   }
 
   findByProtocol(protocol) {
-    const normalizedProtocol = cleanText(protocol).toUpperCase();
+    const normalizedProtocol = normalizeProtocol(protocol);
     if (!PROTOCOL_PATTERN.test(normalizedProtocol)) return { error: 'Informe um protocolo válido. Exemplo: 2026-00001.' };
     const request = this.repository.findByProtocol(normalizedProtocol);
     return request ? { request } : { notFound: true };

@@ -41,7 +41,7 @@ class ImageRepository {
 
   findById(id) {
     return this.database.prepare(`
-      SELECT request_images.*, requests.requester_user_id,
+      SELECT request_images.*, requests.requester_user_id, requests.category AS request_category,
              COALESCE(image_work_order.team_id, request_work_order.team_id) AS team_id,
              COALESCE(image_work_order.assigned_user_id, request_work_order.assigned_user_id) AS assigned_user_id,
              image_work_order.number AS work_order_number

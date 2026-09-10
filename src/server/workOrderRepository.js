@@ -93,7 +93,6 @@ class WorkOrderRepository {
   }
 
   listForUser(user) {
-    const condition = user.role === 'ADMINISTRADOR' ? '' : 'WHERE work_orders.team_id = ? AND (work_orders.assigned_user_id IS NULL OR work_orders.assigned_user_id = ?)';
     const statement = this.database.prepare(`
       SELECT work_orders.*, teams.name AS team_name, users.name AS assigned_user_name, requests.status AS request_status, requests.neighborhood,
              requests.reference, requests.latitude AS request_latitude, requests.longitude AS request_longitude,
@@ -106,10 +105,15 @@ class WorkOrderRepository {
       LEFT JOIN users ON users.id = work_orders.assigned_user_id
       JOIN requests ON requests.id = work_orders.request_id
       LEFT JOIN work_order_executions ON work_order_executions.work_order_id = work_orders.id
-      ${condition}
       ORDER BY COALESCE(work_orders.scheduled_at, work_orders.created_at) DESC
     `);
-    return user.role === 'ADMINISTRADOR' ? statement.all() : statement.all(user.teamId, user.id);
+    const workOrders = statement.all();
+    if (user.role === 'ADMINISTRADOR') return workOrders;
+    const categories = Array.isArray(user.serviceCategories) ? user.serviceCategories : [];
+    return workOrders.filter((workOrder) => {
+      if (categories.length && categories.includes(workOrder.category)) return true;
+      return workOrder.team_id === user.teamId && (!workOrder.assigned_user_id || workOrder.assigned_user_id === user.id);
+    });
   }
 
   updateManagement(number, changes) {
