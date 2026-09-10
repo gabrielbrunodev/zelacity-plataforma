@@ -1,0 +1,103 @@
+name: Gerar APK Android assinado
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: "URL HTTPS da aplicação ou API hospedada (ex.: https://sistema.exemplo.gov.br)"
+        required: true
+        type: string
+      version_code:
+        description: "versionCode inteiro e maior que o da versão já distribuída"
+        required: true
+        default: "1"
+        type: string
+      version_name:
+        description: "versionName exibido ao usuário (ex.: 1.0.0)"
+        required: true
+        default: "1.0.0"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build-signed-release-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v5
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependências do aplicativo
+        run: npm install
+
+      - name: Validar e preparar versão web
+        run: |
+          npm run check
+          npm run mobile:web
+
+      - name: Configurar API do APK
+        run: npm run mobile:configure -- "${{ inputs.api_base_url }}"
+
+      - name: Gerar projeto Android e recursos visuais
+        run: |
+          npx cap add android
+          npm run mobile:assets
+          npm run mobile:sync
+
+      - name: Preparar Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Preparar material de assinatura temporário
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for secret in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_ALIAS ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_PASSWORD; do
+            if [ -z "${!secret:-}" ]; then
+              echo "::error title=Assinatura ausente::Configure o secret ${secret} antes de gerar a versão de produção."
+              exit 1
+            fi
+          done
+          umask 077
+          keystore_path="$RUNNER_TEMP/zelacity-release.keystore"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
+          test -s "$keystore_path"
+          {
+            printf 'storeFile=%s\n' "$keystore_path"
+            printf 'storePassword=%s\n' "$ANDROID_KEYSTORE_PASSWORD"
+            printf 'keyAlias=%s\n' "$ANDROID_KEYSTORE_ALIAS"
+            printf 'keyPassword=%s\n' "$ANDROID_KEY_PASSWORD"
+          } > android/keystore.properties
+          node src/scripts/configureAndroidRelease.js "${{ inputs.version_code }}" "${{ inputs.version_name }}"
+
+      - name: Compilar APK de produção assinado
+        working-directory: android
+        run: ./gradlew assembleRelease
+
+      - name: Remover material temporário de assinatura
+        if: always()
+        run: |
+          rm -f android/keystore.properties
+          rm -f "$RUNNER_TEMP/zelacity-release.keystore"
+
+      - name: Disponibilizar APK assinado
+        uses: actions/upload-artifact@v5
+        with:
+          name: zelacity-android-release-v${{ inputs.version_name }}
+          path: android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
