@@ -327,7 +327,7 @@ function createEmployeeForm(teams, availableCategories, initial = {}) {
 
 function renderUserManagement(users, teams, categories, reload) {
   const section = element('section', 'dashboard-section user-management');
-  section.append(element('p', 'eyebrow', 'Acesso interno'), element('h2', '', 'Funcionários e equipes'), element('p', 'dashboard-notice', 'Somente administradores gerenciam acessos. Funcionários não podem conceder permissões administrativas a si próprios.'));
+  section.append(element('p', 'eyebrow', 'Acesso interno'), element('h2', '', 'Funcionários e equipes'), element('p', 'dashboard-notice', 'Somente administradores gerenciam acessos. Funcionários não podem conceder permissões administrativas a si próprios. As senhas são protegidas e nunca são exibidas; use “Editar” para redefinir uma senha.'));
   const teamForm = document.createElement('form'); teamForm.className = 'team-form';
   teamForm.innerHTML = '<label class="field">Nova equipe<input name="name" minlength="3" placeholder="Ex.: Equipe de Iluminação" required /></label><button class="button button-secondary button-small" type="submit">Criar equipe</button>';
   const teamFeedback = element('p', 'inline-feedback'); teamForm.append(teamFeedback);
@@ -342,7 +342,12 @@ function renderUserManagement(users, teams, categories, reload) {
   users.forEach((user) => {
     const card = element('article', `user-list-card${user.active ? '' : ' is-inactive'}`);
     const summary = element('div', 'user-list-summary');
-    const text = element('div'); text.append(element('strong', '', user.name), element('p', '', `${roleLabels[user.role] || user.role} · ${user.job_title || 'Função não informada'}${user.team_name ? ` · ${user.team_name}` : ''}`), element('small', '', user.active ? 'Acesso ativo' : 'Acesso desativado'));
+    const text = element('div'); text.append(element('strong', '', user.name), element('p', '', `${roleLabels[user.role] || user.role} · ${user.job_title || 'Função não informada'}${user.team_name ? ` · ${user.team_name}` : ''}`));
+    if (user.role === 'MANUTENCAO') {
+      const categoryNames = categoriesForUser(user).map((code) => categories.find((category) => category.code === code)?.name || code);
+      text.append(element('small', 'user-service-categories', `Serviços de manutenção: ${categoryNames.length ? categoryNames.join(', ') : 'nenhum serviço definido'}`));
+    }
+    text.append(element('small', '', user.active ? 'Acesso ativo' : 'Acesso desativado'));
     const edit = element('button', 'button button-secondary button-small', 'Editar'); edit.type = 'button'; summary.append(text, edit); card.append(summary);
     const editor = createEmployeeForm(teams, categories, user); editor.hidden = true;
     const active = document.createElement('label'); active.className = 'field'; active.innerHTML = '<span>Status do acesso</span><select name="active"><option value="true">Ativo</option><option value="false">Inativo</option></select>'; active.querySelector('select').value = user.active ? 'true' : 'false'; editor.append(active);
