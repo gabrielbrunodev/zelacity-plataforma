@@ -9,6 +9,7 @@ const workerSource = String.raw`
   const sqlClient = neon(workerData.connectionString);
 
   function encode(value) {
+    if (value instanceof Date) return value.toISOString();
     if (Buffer.isBuffer(value) || value instanceof Uint8Array) return { __buffer: Buffer.from(value).toString('base64') };
     if (Array.isArray(value)) return value.map(encode);
     if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, encode(item)]));
