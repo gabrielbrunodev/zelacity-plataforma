@@ -4,12 +4,9 @@ const RESPONSE_BYTES = 64 * 1024 * 1024;
 
 const workerSource = String.raw`
   const { parentPort, workerData } = require('node:worker_threads');
-  const { Client, neonConfig } = require('@neondatabase/serverless');
-  const WebSocket = require('ws');
-  neonConfig.webSocketConstructor = WebSocket;
-
+  const { neon } = require('@neondatabase/serverless');
   const state = new Int32Array(workerData.readyBuffer);
-  const client = new Client(workerData.connectionString);
+  const sqlClient = neon(workerData.connectionString);
 
   function encode(value) {
     if (Buffer.isBuffer(value) || value instanceof Uint8Array) return { __buffer: Buffer.from(value).toString('base64') };
@@ -31,13 +28,17 @@ const workerSource = String.raw`
   }
 
   async function main() {
-    await client.connect();
     Atomics.store(state, 0, 1);
     Atomics.notify(state, 0);
     parentPort.on('message', async ({ buffer, sql, params }) => {
       try {
-        const result = await client.query(sql, params || []);
-        writeResponse(buffer, { ok: true, rows: result.rows || [], rowCount: result.rowCount || 0 });
+        if (/^(BEGIN|COMMIT|ROLLBACK)\b/i.test(sql)) {
+          writeResponse(buffer, { ok: true, rows: [], rowCount: 0 });
+          return;
+        }
+        const result = await sqlClient.query(sql, params || []);
+        const rows = Array.isArray(result) ? result : (result.rows || []);
+        writeResponse(buffer, { ok: true, rows, rowCount: rows.length });
       } catch (error) {
         writeResponse(buffer, { ok: false, error: error.message || 'Erro de banco de dados.' });
       }
@@ -121,7 +122,40 @@ class PostgresSyncDatabase {
   exec(source) {
     const sql = String(source || '').trim().replace(/^BEGIN\s+IMMEDIATE\b/i, 'BEGIN');
     if (!sql || /^PRAGMA\b/i.test(sql)) return;
-    this.query(toPostgresSql(sql), []);
+    const statements = [];
+    let current = '';
+    let quote = null;
+    let dollarQuote = null;
+    for (let index = 0; index < sql.length; index += 1) {
+      const char = sql[index];
+      const next = sql[index + 1];
+      if (dollarQuote) {
+        current += char;
+        if (sql.startsWith(dollarQuote, index)) {
+          current += sql.slice(index + 1, index + dollarQuote.length);
+          index += dollarQuote.length - 1;
+          dollarQuote = null;
+        }
+        continue;
+      }
+      if (quote) {
+        current += char;
+        if (char === quote && next === quote) { current += next; index += 1; }
+        else if (char === quote) quote = null;
+        continue;
+      }
+      if (char === "'" || char === '"') { quote = char; current += char; continue; }
+      if (char === '$' && sql.slice(index).match(/^\$[A-Za-z_]*\$/)) {
+        dollarQuote = sql.slice(index).match(/^\$[A-Za-z_]*\$/)[0];
+        current += dollarQuote;
+        index += dollarQuote.length - 1;
+        continue;
+      }
+      if (char === ';') { if (current.trim()) statements.push(current.trim()); current = ''; }
+      else current += char;
+    }
+    if (current.trim()) statements.push(current.trim());
+    statements.forEach((statement) => this.query(toPostgresSql(statement), []));
   }
 
   close() {
