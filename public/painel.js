@@ -489,7 +489,15 @@ async function initialize() {
     const { user } = await api('/api/auth/me'); userElement.textContent = `${roleLabels[user.role]} · ${user.name}`; roleElement.textContent = roleLabels[user.role];
     document.querySelectorAll('[data-admin-nav]').forEach((link) => { link.hidden = user.role !== 'ADMINISTRADOR'; });
     if (user.role === 'ADMINISTRADOR') await renderAdministrator(); else if (user.role === 'MANUTENCAO') await renderMaintenance(user); else if (user.role === 'VEREADOR') await renderCouncilMember(user); else renderRequester();
-  } catch { window.location.replace('/login.html'); }
+  } catch (error) {
+    if (error.message === 'Autenticação necessária.') {
+      window.location.replace('/login.html');
+      return;
+    }
+    title.textContent = 'Não foi possível carregar o painel';
+    description.textContent = 'Sua sessão continua ativa. Atualize a página em alguns instantes.';
+    content.replaceChildren(element('p', 'form-error', error.message || 'Ocorreu um erro ao carregar os dados administrativos.'));
+  }
 }
 
 logoutButton.addEventListener('click', async () => { await fetch('/api/auth/logout', { method: 'POST' }); window.location.replace('/'); });
