@@ -213,7 +213,7 @@ class AuthService {
              users.created_at, teams.name AS team_name
       FROM users LEFT JOIN teams ON teams.id = users.team_id
       WHERE users.email <> 'sistema.publico@zelacity.local'
-      ORDER BY users.active DESC, users.name COLLATE NOCASE
+      ORDER BY users.active DESC, users.name
     `).all();
   }
 }
