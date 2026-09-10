@@ -18,13 +18,15 @@
     "node": "22.x"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
     "@capacitor/android": "8.5.1",
     "@capacitor/browser": "8.0.4",
     "@capacitor/camera": "8.2.4",
     "@capacitor/core": "8.5.1",
     "@capacitor/geolocation": "8.2.2",
     "@capacitor/splash-screen": "8.0.2",
-    "@capacitor/status-bar": "8.0.3"
+    "@capacitor/status-bar": "8.0.3",
+    "ws": "^8.18.3"
   },
   "devDependencies": {
     "@capacitor/assets": "3.0.5",
