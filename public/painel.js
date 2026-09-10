@@ -405,10 +405,21 @@ function renderCategoryManagement(categories, reload) {
   return section;
 }
 
+function renderDemoAccess(demo) {
+  if (!demo?.enabled) return null;
+  const section = element('section', 'demo-access-card');
+  section.append(element('p', 'eyebrow', 'Demonstração'), element('h2', '', 'Acesso para apresentar o sistema'), element('p', 'demo-access-copy', 'Estas credenciais são somente para demonstração. Não use esta conta em produção nem para dados reais.'));
+  const credentials = element('div', 'demo-credentials');
+  [['Usuário', demo.username], ['Senha', demo.password]].forEach(([label, value]) => {
+    const item = element('div', 'demo-credential'); item.append(element('span', '', label), element('code', '', value || '—')); credentials.append(item);
+  });
+  section.append(credentials); return section;
+}
+
 async function renderAdministrator() {
   title.textContent = 'Painel administrativo';
   description.textContent = 'Visão consolidada para priorizar, analisar e encaminhar as solicitações municipais.';
-  const [teamsResult, usersResult, categoriesResult] = await Promise.all([api('/api/teams'), api('/api/users'), api('/api/admin/categories')]);
+  const [teamsResult, usersResult, categoriesResult, demoResult] = await Promise.all([api('/api/teams'), api('/api/users'), api('/api/admin/categories'), api('/api/config/demo')]);
   categoriesResult.categories.forEach((category) => { categoryLabels[category.code] = category.name; });
   const teams = teamsResult.teams;
   const maintenanceUsers = usersResult.users.filter((user) => user.role === 'MANUTENCAO' && user.active);
@@ -430,7 +441,8 @@ async function renderAdministrator() {
   const administrativeManual = renderInternalRequestRegistration(categoriesResult.categories, renderAdministrator, 'ADMINISTRATIVO'); administrativeManual.id = 'nova-solicitacao-administrativa';
   const users = renderUserManagement(usersResult.users, teams, categoriesResult.categories, renderAdministrator); users.id = 'funcionarios';
   const categories = renderCategoryManagement(categoriesResult.categories, renderAdministrator); categories.id = 'categorias'; categories.querySelector('h2').textContent = 'Categorias e configurações';
-  filtersSection.append(createFilters(categoriesResult.categories, teams, maintenanceUsers, loadDashboard), tableHost); content.append(requestMap.section, filtersSection, manual, administrativeManual, users, categories); await Promise.all([requestMap.load(), loadDashboard()]);
+  filtersSection.append(createFilters(categoriesResult.categories, teams, maintenanceUsers, loadDashboard), tableHost);
+  const sections = [requestMap.section, filtersSection, manual, administrativeManual, users, categories]; const demoAccess = renderDemoAccess(demoResult); if (demoAccess) sections.unshift(demoAccess); content.append(...sections); await Promise.all([requestMap.load(), loadDashboard()]);
 }
 
 async function renderMaintenance(user) {

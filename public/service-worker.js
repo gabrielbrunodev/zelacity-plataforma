@@ -1,4 +1,4 @@
-const CACHE_NAME = 'zelacity-static-v17';
+const CACHE_NAME = 'zelacity-static-v18';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
