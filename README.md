@@ -36,7 +36,7 @@ Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 O cidadão não cria conta e não faz login. Para acessar a administração, crie o primeiro administrador uma única vez:
 
 ```powershell
-npm run bootstrap-admin -- admin@prefeitura.gov.br "UseUmaSenhaForteCom12Caracteres" "Nome do Administrador"
+npm run bootstrap-admin -- admin@prefeitura.gov.br "SenhaForteCom8Caracteres" "Nome do Administrador"
 ```
 
 Depois, entre em [http://localhost:3000/login.html](http://localhost:3000/login.html). Não há senha padrão gravada no projeto.
@@ -46,9 +46,9 @@ Depois, entre em [http://localhost:3000/login.html](http://localhost:3000/login.
 ### Cidadão
 
 - Registra uma solicitação sem login, usando nome, telefone/WhatsApp, e-mail opcional, local, bairro, ponto de referência, serviço, descrição, foto e GPS opcionais.
-- Recebe um protocolo `SOL-AAAA-00001` na tela.
+- Recebe um protocolo no formato `AAAA-00001` na tela.
 - Pode compartilhar o protocolo manualmente por WhatsApp e, quando houver e-mail, pelo cliente de e-mail. O sistema também deixa notificações enfileiradas para uma integração futura; uma falha externa nunca impede o cadastro.
-- Consulta sem login com protocolo e os últimos quatro dígitos do telefone. A consulta não retorna nome, telefone, e-mail, descrição, referência ou imagens.
+- Consulta sem login apenas pelo protocolo do aplicativo. A consulta não retorna nome, telefone, e-mail, descrição, referência ou imagens.
 
 ### Vereador
 
@@ -60,24 +60,37 @@ Depois, entre em [http://localhost:3000/login.html](http://localhost:3000/login.
 ### Administração
 
 - Acessa dashboard, mapa, relatórios, solicitações, ordens e histórico por login.
+- Pode usar **Nova solicitação do 1Doc** para transferir manualmente uma demanda oficial: informa o protocolo do 1Doc, a data de recebimento, dados da demanda, prioridade, foto opcional e observações internas. O sistema gera um protocolo próprio e mantém os dois números vinculados, sem integração automática com a API do 1Doc.
+- A pesquisa de solicitações administrativas aceita tanto o protocolo do aplicativo quanto o protocolo vinculado do 1Doc.
+- Toda solicitação possui uma origem obrigatória: **Munícipe**, **Vereador**, **1Doc** ou **Administração**. Ela é definida pelo servidor conforme o fluxo de cadastro; o painel e os relatórios permitem filtrar e consolidar os dados por origem.
+- As prioridades disponíveis são **Baixa**, **Normal**, **Alta** e **Urgente**; novas solicitações começam em **Normal** e podem ser ajustadas pelo administrador.
+- O administrador pode definir um prazo padrão opcional, em dias, para cada categoria e alterar o prazo de uma solicitação específica. O painel mostra a data de abertura, os dias em aberto e alertas de prazo próximo ou atrasado. Esses prazos são operacionais e configuráveis; o sistema não aplica regra legal automática.
 - Novas solicitações entram como **Aguardando análise**.
 - Pode aprovar, indeferir, solicitar informações adicionais, ajustar prioridade, cadastrar equipes, funcionários internos e vereadores, distribuir demandas e criar OS.
-- Só a administração conclui definitivamente a solicitação.
+- Pode revisar o histórico e editar posteriormente a mensagem pública da solicitação concluída.
 
 ### Equipe de manutenção
 
 - Usa [http://localhost:3000/manutencao.html](http://localhost:3000/manutencao.html), uma área otimizada para celular.
 - Vê apenas OS da própria equipe, agrupadas em Pendentes, Em execução, Com pendência e Executadas.
-- Pode iniciar, concluir com fotos/GPS/observação ou informar impedimento. A conclusão operacional deixa a OS como **Executada**, sem encerrar a solicitação.
+- Pode iniciar, concluir com fotos/GPS/observação e materiais utilizados, ou informar impedimento. A conclusão registra data e horário automaticamente e deixa a OS e a solicitação como **Concluídas**.
 - Não possui rotas para alterar prioridade, atribuição, dados do cidadão ou usuários.
+- Conta com uma central interna de notificações: o sino mostra a quantidade não lida e registra novas atribuições, redistribuições, alterações relevantes da OS e mensagens enviadas pela Administração. As notificações podem ser marcadas como lidas individualmente ou de uma só vez.
 
 ## Segurança e dados
 
-- Senhas usam `scrypt`; sessões são cookies `HttpOnly` com `SameSite=Strict`.
-- A autorização é validada no backend, inclusive para rotas de arquivos e operações de OS.
+- Senhas usam `scrypt` com sal aleatório; sessões armazenam apenas o hash do token e usam cookies `HttpOnly`, `SameSite=Strict` e `Secure` em produção.
+- Páginas internas, APIs administrativas, imagens e operações de OS validam autenticação e perfil no backend. Funcionários só acessam demandas da equipe ou atribuídas diretamente a eles.
+- A consulta pública retorna exclusivamente protocolo, categoria, bairro resumido, datas, status e mensagem pública; nunca dados de contato, observações internas, imagens ou responsáveis.
 - Imagens aceitam apenas JPG, PNG ou WebP, com no máximo 5 MB, e passam por validação de tipo e assinatura.
-- A auditoria é imutável e registra criação, análise, prioridade, OS, atribuição, início, pendência, execução e conclusão.
+- A auditoria é imutável e classifica criação, alteração de status, atribuição, redistribuição, prioridade, fotos, observações, protocolo 1Doc, início, impossibilidade, conclusão e reabertura. O histórico administrativo mostra todos os detalhes; a consulta pública exibe somente eventos com atualização pública.
 - O SQLite fica em `data/munimanutencao.sqlite`; reiniciar o servidor não apaga os dados.
+
+Por padrão, a foto posterior é recomendada, mas não obrigatória. Para exigi-la ao concluir um serviço, configure antes de iniciar o servidor:
+
+```powershell
+$env:REQUIRE_AFTER_EXECUTION_PHOTO = "true"
+```
 
 ## Google Maps e GPS
 
@@ -103,7 +116,31 @@ Para testar no celular:
 3. Abra essa URL no navegador do celular. No Android/Chrome, escolha **Instalar aplicativo** ou **Adicionar à tela inicial**. No iPhone/Safari, toque em **Compartilhar** e em **Adicionar à Tela de Início**.
 4. Abra o ícone instalado: ele iniciará em modo standalone. Cadastre uma solicitação, teste a câmera pelo campo de foto e permita a localização somente quando desejar compartilhá-la.
 
-O service worker já está preparado para receber notificações push no futuro. O sistema ainda não pede nem envia notificações sem uma integração de assinatura e entrega configurada no servidor.
+O service worker e o banco já possuem a base para notificações push futuras: as assinaturas de dispositivos poderão ser vinculadas aos funcionários e cada notificação interna fica marcada como pendente dessa configuração. Esta versão ainda não pede permissão nem envia push, pois isso depende de configurar chaves, serviço de entrega e a integração do APK/PWA.
+
+## APK Android com GitHub Actions
+
+O projeto está preparado para ser empacotado com Capacitor, sem remover ou alterar o funcionamento da versão web. O APK contém as telas HTML, CSS e JavaScript e usa a mesma API hospedada para login, solicitações, fotos e atualizações; o servidor Node.js e o SQLite **não** são copiados para o celular.
+
+A configuração usa somente as permissões necessárias para os recursos já existentes:
+
+- câmera, para anexar fotos;
+- localização aproximada e precisa, somente quando a pessoa usar o botão de localização;
+- Internet, para comunicar-se com a API hospedada.
+
+Não há permissão de localização em segundo plano, armazenamento amplo, contatos, telefone, microfone ou leitura de arquivos pessoais. Os links de localização são convertidos em `geo:` no Android para abrir o aplicativo de mapas disponível no aparelho. A pasta `resources/` contém a fonte vetorial do ícone e da tela de abertura; os tamanhos Android são gerados automaticamente durante a compilação.
+
+### Antes do primeiro APK
+
+1. Mantenha a aplicação web publicada em uma URL HTTPS, como a implantação da Vercel.
+2. No painel da hospedagem, configure a variável de ambiente **não secreta** `MOBILE_ALLOWED_ORIGINS` com `https://localhost`. Isso libera exclusivamente o WebView do Capacitor para acessar a API, com CORS e cookie de sessão apropriados. Não use `*` e não inclua origens desconhecidas.
+3. Antes de publicar em uma loja, defina o identificador definitivo do aplicativo. O valor atual, `br.dev.zelacity.plataforma`, é apenas para compilação de teste; mudá-lo após distribuir o aplicativo impede atualizações sobre a instalação anterior.
+
+### Gerar pelo GitHub
+
+No repositório, abra **Actions** → **Gerar APK Android** → **Run workflow**. Informe a origem HTTPS da aplicação, por exemplo `https://zelacity-plataforma.vercel.app`. Ao fim, baixe o arquivo `zelacity-android-debug-apk` na seção de artefatos da execução.
+
+O fluxo instala as dependências, gera o projeto Android, os ícones e a abertura, sincroniza o Capacitor e produz um APK de teste. Ele não assina nem publica o aplicativo, e não usa chaves no repositório. A assinatura de produção será uma etapa futura, feita com segredos configurados no GitHub.
 
 ## Scripts
 

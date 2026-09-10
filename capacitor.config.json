@@ -1,0 +1,19 @@
+{
+  "appId": "br.dev.zelacity.plataforma",
+  "appName": "Zelacity Plataforma",
+  "webDir": "public",
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": true,
+      "launchShowDuration": 600,
+      "launchFadeOutDuration": 180,
+      "backgroundColor": "#0a3f5e",
+      "showSpinner": false
+    }
+  }
+}

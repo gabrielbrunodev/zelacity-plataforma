@@ -7,10 +7,26 @@
   "scripts": {
     "start": "node src/server/index.js",
     "dev": "node --watch src/server/index.js",
-    "check": "node --check src/server/index.js && node --check src/server/runtime.js && node --check src/server/app.js && node --check api/[...path].js && node --check src/server/requestService.js && node --check src/server/requestRepository.js && node --check src/server/workOrderService.js && node --check src/server/workOrderRepository.js && node --check src/server/notificationService.js && node --check src/auth/authService.js && node --check src/database/database.js && node --check src/server/reportRepository.js && node --check src/server/reportService.js && node --check src/server/reportExporter.js && node --check public/app.js && node --check public/acompanhar.js && node --check public/painel.js && node --check public/manutencao.js && node --check public/relatorios.js && node --check public/pwa.js && node --check public/service-worker.js",
+    "mobile:configure": "node src/scripts/configureMobileRuntime.js",
+    "mobile:web": "node src/scripts/prepareMobileWeb.js",
+    "mobile:sync": "npx cap sync android",
+    "mobile:assets": "npx capacitor-assets generate --android --assetPath resources --iconBackgroundColor=#0a3f5e --splashBackgroundColor=#0a3f5e",
+    "check": "node --check src/server/index.js && node --check src/server/runtime.js && node --check src/server/app.js && node --check api/index.js && node --check src/server/requestService.js && node --check src/server/requestRepository.js && node --check src/server/categoryService.js && node --check src/server/categoryRepository.js && node --check src/server/workOrderService.js && node --check src/server/workOrderRepository.js && node --check src/server/notificationService.js && node --check src/auth/authService.js && node --check src/database/database.js && node --check src/server/reportRepository.js && node --check src/server/reportService.js && node --check src/server/reportExporter.js && node --check public/app.js && node --check public/acompanhar.js && node --check public/painel.js && node --check public/manutencao.js && node --check public/relatorios.js && node --check public/pwa.js && node --check public/service-worker.js",
     "bootstrap-admin": "node src/scripts/bootstrapAdmin.js"
   },
   "engines": {
     "node": "22.x"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.1",
+    "@capacitor/browser": "8.0.4",
+    "@capacitor/camera": "8.2.4",
+    "@capacitor/core": "8.5.1",
+    "@capacitor/geolocation": "8.2.2",
+    "@capacitor/splash-screen": "8.0.2"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "3.0.5",
+    "@capacitor/cli": "8.5.1"
   }
 }
