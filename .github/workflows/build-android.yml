@@ -1,0 +1,61 @@
+name: Gerar APK Android
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: URL HTTPS da aplicação/API hospedada (ex.: https://sistema.exemplo.gov.br)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build-debug-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v4
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependências do aplicativo
+        run: npm install
+
+      - name: Validar e preparar versão web
+        run: |
+          npm run check
+          npm run mobile:web
+
+      - name: Configurar API do APK
+        run: npm run mobile:configure -- "${{ inputs.api_base_url }}"
+
+      - name: Gerar projeto Android e recursos visuais
+        run: |
+          npx cap add android
+          npm run mobile:assets
+          npm run mobile:sync
+
+      - name: Preparar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Compilar APK de teste
+        working-directory: android
+        run: ./gradlew assembleDebug
+
+      - name: Disponibilizar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: zelacity-android-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
