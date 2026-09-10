@@ -167,6 +167,11 @@ function hasAllowedOrigin(request) {
   return !origin || origin === `http://${host}` || origin === `https://${host}` || config.mobileAllowedOrigins.has(origin);
 }
 
+function isNativeAssetRequest(request) {
+  const host = String(request.headers.host || '').split(':')[0].toLowerCase();
+  return host === 'localhost' || host === '127.0.0.1' || request.headers.origin === 'https://localhost';
+}
+
 function corsHeaders(request) {
   const origin = request.headers.origin;
   if (!config.mobileAllowedOrigins.has(origin)) return {};
@@ -742,7 +747,10 @@ function createApp({ requestService, workOrderService, reportService, authServic
 
     if (request.method === 'GET') {
       const allowedRoles = PROTECTED_PAGES.get(pathname);
-      if (allowedRoles) {
+      // No APK, as páginas HTML são empacotadas localmente em https://localhost.
+      // A autenticação continua sendo exigida pelas APIs remotas; apenas o
+      // carregamento do shell local não deve redirecionar a sessão para o login.
+      if (allowedRoles && !isNativeAssetRequest(request)) {
         const user = getAuthenticatedUser(request, authService);
         if (!user) {
           response.writeHead(302, { ...SECURITY_HEADERS, Location: '/login.html' });
