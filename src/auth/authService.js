@@ -1,4 +1,4 @@
-const { createHash, randomBytes } = require('node:crypto');
+const { createHash, createHmac, timingSafeEqual } = require('node:crypto');
 const { hashPassword, validatePassword, verifyPassword } = require('./password');
 
 const ROLES = new Set(['SOLICITANTE', 'VEREADOR', 'MANUTENCAO', 'ADMINISTRADOR']);
@@ -39,10 +39,35 @@ function toPublicUser(user) {
 }
 
 class AuthService {
-  constructor(database, { sessionHours = 12 } = {}, categoryService = null) {
+  constructor(database, { sessionHours = 12, sessionSecret = 'local-development-session-secret' } = {}, categoryService = null) {
     this.database = database;
     this.sessionHours = sessionHours;
+    this.sessionSecret = sessionSecret;
     this.categoryService = categoryService;
+  }
+
+  createSignedSessionToken(userId, expiresAt) {
+    const payload = Buffer.from(JSON.stringify({ sub: Number(userId), exp: Date.parse(expiresAt) }), 'utf8').toString('base64url');
+    const signature = createHmac('sha256', this.sessionSecret).update(payload).digest('base64url');
+    return `v1.${payload}.${signature}`;
+  }
+
+  getUserFromSignedToken(token) {
+    const parts = String(token || '').split('.');
+    if (parts.length !== 3 || parts[0] !== 'v1') return null;
+    const [, payload, signature] = parts;
+    const expected = createHmac('sha256', this.sessionSecret).update(payload).digest('base64url');
+    const actualBuffer = Buffer.from(signature);
+    const expectedBuffer = Buffer.from(expected);
+    if (actualBuffer.length !== expectedBuffer.length || !timingSafeEqual(actualBuffer, expectedBuffer)) return null;
+    try {
+      const data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+      if (!Number.isInteger(data.sub) || !Number.isFinite(data.exp) || data.exp <= Date.now()) return null;
+      const user = this.findUser(data.sub);
+      return user && user.active ? toPublicUser(user) : null;
+    } catch {
+      return null;
+    }
   }
 
   hasAdministrator() {
@@ -151,10 +176,10 @@ class AuthService {
     const normalizedIdentifier = normalizeUsername(identifier);
     const user = this.database.prepare('SELECT * FROM users WHERE (username = ? OR email = ?) AND active = 1').get(normalizedIdentifier, normalizeEmail(identifier));
     if (!user || !verifyPassword(password || '', user.password_hash)) return { error: 'Usuário ou senha inválidos.' };
-    const token = randomBytes(32).toString('base64url');
-    const tokenHash = createHash('sha256').update(token).digest('hex');
     const now = new Date();
     const expiresAt = new Date(now.getTime() + this.sessionHours * 60 * 60 * 1000).toISOString();
+    const token = this.createSignedSessionToken(user.id, expiresAt);
+    const tokenHash = createHash('sha256').update(token).digest('hex');
     this.database.prepare('DELETE FROM sessions WHERE expires_at <= ?').run(now.toISOString());
     this.database.prepare('INSERT INTO sessions (token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)').run(tokenHash, user.id, expiresAt, now.toISOString());
     return { token, expiresAt, user: toPublicUser(this.findUser(user.id)) };
@@ -162,6 +187,8 @@ class AuthService {
 
   getUserFromToken(token) {
     if (!token) return null;
+    const signedUser = this.getUserFromSignedToken(token);
+    if (signedUser) return signedUser;
     const tokenHash = createHash('sha256').update(token).digest('hex');
     const user = this.database.prepare(`
       SELECT users.*, teams.name AS team_name
