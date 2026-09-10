@@ -46,6 +46,7 @@ class PhotoStorage {
       originalName: path.basename(String(photo.filename || 'imagem')).slice(0, 180),
       mimeType: photo.contentType,
       size: photo.data.length,
+      contentData: photo.data,
     };
   }
 

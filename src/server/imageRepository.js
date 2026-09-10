@@ -7,9 +7,9 @@ class ImageRepository {
     const result = this.database.prepare(`
       INSERT INTO request_images (
         request_id, work_order_id, image_type, storage_path, original_name,
-        mime_type, file_size, uploaded_by_user_id, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(requestId, workOrderId, imageType, photo.storagePath, photo.originalName, photo.mimeType, photo.size, uploadedByUserId, createdAt);
+        mime_type, file_size, content_data, uploaded_by_user_id, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(requestId, workOrderId, imageType, photo.storagePath, photo.originalName, photo.mimeType, photo.size, photo.contentData || null, uploadedByUserId, createdAt);
     return this.findById(Number(result.lastInsertRowid));
   }
 
@@ -19,7 +19,10 @@ class ImageRepository {
 
   listForRequest(requestId) {
     return this.database.prepare(`
-      SELECT request_images.*, users.name AS uploaded_by_name, work_orders.number AS work_order_number
+      SELECT request_images.id, request_images.request_id, request_images.work_order_id, request_images.image_type,
+             request_images.storage_path, request_images.original_name, request_images.mime_type,
+             request_images.file_size, request_images.uploaded_by_user_id, request_images.created_at,
+             users.name AS uploaded_by_name, work_orders.number AS work_order_number
       FROM request_images
       JOIN users ON users.id = request_images.uploaded_by_user_id
       LEFT JOIN work_orders ON work_orders.id = request_images.work_order_id
@@ -30,7 +33,10 @@ class ImageRepository {
 
   listForWorkOrder(workOrderId) {
     return this.database.prepare(`
-      SELECT request_images.*, users.name AS uploaded_by_name, work_orders.number AS work_order_number
+      SELECT request_images.id, request_images.request_id, request_images.work_order_id, request_images.image_type,
+             request_images.storage_path, request_images.original_name, request_images.mime_type,
+             request_images.file_size, request_images.uploaded_by_user_id, request_images.created_at,
+             users.name AS uploaded_by_name, work_orders.number AS work_order_number
       FROM request_images
       JOIN users ON users.id = request_images.uploaded_by_user_id
       JOIN work_orders ON work_orders.id = request_images.work_order_id

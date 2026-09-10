@@ -248,11 +248,11 @@ class WorkOrderRepository {
       const insertImage = this.database.prepare(`
         INSERT INTO request_images (
           request_id, work_order_id, image_type, storage_path, original_name,
-          mime_type, file_size, uploaded_by_user_id, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          mime_type, file_size, content_data, uploaded_by_user_id, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
-      if (beforePhoto) insertImage.run(workOrder.request_id, workOrderId, 'ANTES_EXECUCAO', beforePhoto.storagePath, beforePhoto.originalName, beforePhoto.mimeType, beforePhoto.size, userId, now);
-      if (afterPhoto) insertImage.run(workOrder.request_id, workOrderId, 'DEPOIS_EXECUCAO', afterPhoto.storagePath, afterPhoto.originalName, afterPhoto.mimeType, afterPhoto.size, userId, now);
+      if (beforePhoto) insertImage.run(workOrder.request_id, workOrderId, 'ANTES_EXECUCAO', beforePhoto.storagePath, beforePhoto.originalName, beforePhoto.mimeType, beforePhoto.size, beforePhoto.contentData || null, userId, now);
+      if (afterPhoto) insertImage.run(workOrder.request_id, workOrderId, 'DEPOIS_EXECUCAO', afterPhoto.storagePath, afterPhoto.originalName, afterPhoto.mimeType, afterPhoto.size, afterPhoto.contentData || null, userId, now);
       this.database.prepare('INSERT INTO work_order_updates (work_order_id, user_id, type, description, created_at) VALUES (?, ?, ?, ?, ?)').run(workOrderId, userId, 'EXECUCAO', observation, now);
       this.database.prepare("UPDATE work_orders SET status = 'CONCLUIDA', updated_at = ? WHERE id = ?").run(now, workOrderId);
       this.database.exec('COMMIT');

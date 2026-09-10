@@ -225,6 +225,16 @@ function canViewImage(user, image) {
 }
 
 function serveStoredImage(response, image) {
+  if (image.content_data) {
+    response.writeHead(200, {
+      ...SECURITY_HEADERS,
+      'Content-Type': image.mime_type,
+      'Cache-Control': 'private, no-store',
+      'X-Content-Type-Options': 'nosniff',
+    });
+    response.end(Buffer.from(image.content_data));
+    return;
+  }
   const filename = path.basename(image.storage_path);
   const filePath = path.join(config.uploadDirectory, filename);
   if (!isPathInside(config.uploadDirectory, filePath)) {

@@ -9,7 +9,7 @@ class CategoryRepository {
       SELECT code, name, active, default_deadline_days, created_at, updated_at
       FROM service_categories
       ${condition}
-      ORDER BY name COLLATE NOCASE
+      ORDER BY name
     `).all();
   }
 

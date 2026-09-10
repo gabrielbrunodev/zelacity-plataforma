@@ -70,7 +70,7 @@ class RequestRepository {
     return this.database.prepare(`
       SELECT requests.*, users.name AS account_name, users.email AS account_email,
              teams.name AS responsible_name, work_orders.id AS work_order_id, work_orders.number AS work_order_number, work_orders.status AS work_order_status,
-             CAST(MAX(0, julianday('now') - julianday(requests.created_at)) AS INTEGER) AS open_days,
+             CAST(GREATEST(0, julianday('now') - julianday(requests.created_at)) AS INTEGER) AS open_days,
              CASE
                WHEN requests.deadline_at IS NULL THEN 'SEM_PRAZO'
                WHEN requests.status IN ('CONCLUIDA', 'NAO_REALIZADA', 'CANCELADA') THEN 'ENCERRADA'
@@ -120,7 +120,7 @@ class RequestRepository {
     return this.database.prepare(`
       SELECT requests.*, teams.name AS responsible_name, work_orders.id AS work_order_id,
              work_orders.team_id, work_orders.assigned_user_id, users.name AS assigned_user_name,
-             CAST(MAX(0, julianday('now') - julianday(requests.created_at)) AS INTEGER) AS open_days,
+             CAST(GREATEST(0, julianday('now') - julianday(requests.created_at)) AS INTEGER) AS open_days,
              CASE
                WHEN requests.deadline_at IS NULL THEN 'SEM_PRAZO'
                WHEN requests.status IN ('CONCLUIDA', 'NAO_REALIZADA', 'CANCELADA') THEN 'ENCERRADA'

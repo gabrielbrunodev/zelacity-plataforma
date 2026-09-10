@@ -83,7 +83,7 @@ class ReportRepository {
       ${REQUESTS_FROM}
       ${where}
       GROUP BY requests.neighborhood
-      ORDER BY total DESC, requests.neighborhood COLLATE NOCASE ASC
+      ORDER BY total DESC, requests.neighborhood ASC
     `).all(...values);
   }
 
@@ -112,7 +112,7 @@ class ReportRepository {
       LEFT JOIN users ON users.id = work_orders.assigned_user_id
       ${where}
       GROUP BY users.id, users.name
-      ORDER BY total DESC, employee COLLATE NOCASE ASC
+      ORDER BY total DESC, employee ASC
     `).all(...values);
   }
 
@@ -128,7 +128,7 @@ class ReportRepository {
       LEFT JOIN teams ON teams.id = work_orders.team_id
       ${where}
       GROUP BY teams.id, teams.name
-      ORDER BY total DESC, team COLLATE NOCASE ASC
+      ORDER BY total DESC, team ASC
     `).all(...values);
   }
 
@@ -144,7 +144,7 @@ class ReportRepository {
       JOIN requests ON requests.id = work_orders.request_id
       ${where}
       GROUP BY teams.id, teams.name
-      ORDER BY executed_services DESC, teams.name COLLATE NOCASE ASC
+      ORDER BY executed_services DESC, teams.name ASC
     `).all(...values);
   }
 
