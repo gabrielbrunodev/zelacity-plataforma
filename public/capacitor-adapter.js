@@ -1,5 +1,8 @@
 (() => {
   const configuredBaseUrl = String(window.ZELACITY_RUNTIME_CONFIG?.apiBaseUrl || '').trim().replace(/\/+$/, '');
+  const isNativeApp = Boolean(window.Capacitor?.isNativePlatform?.());
+
+  if (isNativeApp) document.documentElement.classList.add('native-app');
 
   function apiUrl(path) {
     if (!configuredBaseUrl || typeof path !== 'string' || !path.startsWith('/api/')) return path;
@@ -14,7 +17,7 @@
     image.src = URL.createObjectURL(await response.blob());
   };
   window.zelacityNative = Object.freeze({
-    isNative: Boolean(window.Capacitor?.isNativePlatform?.()),
+    isNative: isNativeApp,
     getCurrentPosition: (success, failure, options) => navigator.geolocation.getCurrentPosition(success, failure, options),
   });
 
