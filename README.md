@@ -140,7 +140,32 @@ Não há permissão de localização em segundo plano, armazenamento amplo, cont
 
 No repositório, abra **Actions** → **Gerar APK Android** → **Run workflow**. Informe a origem HTTPS da aplicação, por exemplo `https://zelacity-plataforma.vercel.app`. Ao fim, baixe o arquivo `zelacity-android-debug-apk` na seção de artefatos da execução.
 
-O fluxo instala as dependências, gera o projeto Android, os ícones e a abertura, sincroniza o Capacitor e produz um APK de teste. Ele não assina nem publica o aplicativo, e não usa chaves no repositório. A assinatura de produção será uma etapa futura, feita com segredos configurados no GitHub.
+O fluxo instala as dependências, gera o projeto Android, os ícones e a abertura, sincroniza o Capacitor e produz um APK de teste. Ele não assina nem publica o aplicativo.
+
+### APK de produção assinado
+
+O fluxo **Gerar APK Android assinado** cria uma versão de produção manual, com `versionCode`, `versionName` e a mesma assinatura em todas as atualizações. Ele só usa informações temporárias durante a execução; nenhuma chave, senha ou arquivo de assinatura é salvo no repositório ou enviado como artefato.
+
+Antes de executá-lo, abra **Settings** → **Secrets and variables** → **Actions** → **New repository secret** e cadastre estes quatro segredos:
+
+| Secret | Conteúdo |
+| --- | --- |
+| `ANDROID_KEYSTORE_BASE64` | Arquivo `.jks` ou `.keystore` codificado em Base64, em uma única linha. |
+| `ANDROID_KEYSTORE_ALIAS` | Alias da chave criada no keystore. |
+| `ANDROID_KEYSTORE_PASSWORD` | Senha do keystore. |
+| `ANDROID_KEY_PASSWORD` | Senha da chave/alias. |
+
+No Windows, para copiar o conteúdo Base64 do arquivo para a área de transferência sem colocá-lo no projeto, execute em uma máquina confiável:
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes('C:\caminho\zelacity-release.jks')) | Set-Clipboard
+```
+
+Cole esse conteúdo no secret `ANDROID_KEYSTORE_BASE64`. Nunca cole um keystore ou senha diretamente em arquivo YAML, código, issue, commit ou chat público.
+
+Depois, abra **Actions** → **Gerar APK Android assinado** → **Run workflow**. Informe a URL HTTPS, um `versionCode` maior que o da última versão distribuída e um `versionName` para exibição, por exemplo `1.0.0`. O artefato será `zelacity-android-release-v<versionName>` e conterá o `app-release.apk` assinado.
+
+Guarde permanentemente, em local seguro e fora do GitHub: o arquivo original `.jks`/`.keystore`, o alias, as duas senhas e uma cópia de recuperação dessas informações. O `appId` atual é `br.dev.zelacity.plataforma`; ele e a assinatura não podem mudar em atualizações do mesmo aplicativo. A perda do keystore, alias ou senhas impede instalar futuras versões sobre as instalações já distribuídas, exigindo publicar um aplicativo novo.
 
 ## Scripts
 
